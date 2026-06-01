@@ -11,7 +11,7 @@ the app in a working state.
 ## Phase 0 — Project Scaffold & Foundations
 - Gradle multi-module skeleton (`:app`, `:core:*`, `:feature:*`, `:format:*`, `:sync:api`)
   with version catalog, R8, Compose, Hilt, Room, DataStore, Coil, WorkManager wired.
-- `:core:ui` design system: `EarmarkTheme`, the 10+ palettes, typography/`FontRegistry`,
+- `:core:ui` design system: `DogearTheme`, the 10+ palettes, typography/`FontRegistry`,
   bundled fonts, shared composables.
 - CI: build + ktlint/detekt + unit tests + coverage; baseline-profile + benchmark scaffolding.
 - **Exit:** app launches to an empty themed shelf; CI green.

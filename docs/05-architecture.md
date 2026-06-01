@@ -155,7 +155,7 @@ data class Locator(
 
 - **Settings:** Jetpack DataStore (typed, `Flow`-based). Theme/palette/font/reader prefs are
   observed so changes apply live across shelf/reader/settings.
-- **Theming:** `:core:ui` exposes `EarmarkTheme(palette, mode)`; reading theme is separate
+- **Theming:** `:core:ui` exposes `DogearTheme(palette, mode)`; reading theme is separate
   state consumed only by the reader. Palettes are static `ColorScheme`s + optional dynamic
   color on Android 12+.
 

@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Earmark logo">
-  <title>Earmark</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Dogear logo">
+  <title>Dogear</title>
   <desc>A book page with a folded top-right corner (a dog-ear bookmark).</desc>
   <defs>
     <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
@@ -24,7 +24,7 @@
            a16 16 0 0 1 16 -16 z"
         fill="url(#page)" stroke="#5B4636" stroke-width="14" stroke-linejoin="round"/>
 
-  <!-- The dog-ear fold (the earmark) -->
+  <!-- The dog-ear fold (the dogear) -->
   <path d="M328 96 l64 64 h-48 a16 16 0 0 1 -16 -16 z"
         fill="url(#fold)" stroke="#5B4636" stroke-width="14" stroke-linejoin="round"/>
 

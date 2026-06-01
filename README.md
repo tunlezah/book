@@ -1,8 +1,8 @@
-# Earmark
+# Dogear
 
 **A premium, distraction-free ebook reader for Android tablets and phones.**
 
-> *Earmark* — verb: to set aside, to mark a page for what matters. The name carries
+> *Dogear* — verb: to set aside, to mark a page for what matters. The name carries
 > the imagery of a dog-eared page corner (the oldest bookmark in the world) while
 > reading as a clean, single English word. Professional, witty, and instantly tied
 > to the product's bookmarking and "pick up where you left off" promise.
@@ -20,7 +20,7 @@ build instructions, tests, benchmarks, user docs) begins only after these are ap
 
 ## Vision
 
-Earmark is built around four words: **fast, light, reliable, distraction-free.**
+Dogear is built around four words: **fast, light, reliable, distraction-free.**
 
 It targets **Android 13 on 8-inch tablets** as the primary device, while remaining
 fully optimized for phones and foldables. It is engineered to run smoothly on

@@ -1,7 +1,7 @@
 # Deliverable 1 — Research Report
 
 This report covers the competitive landscape, Android tablet UX conventions, and the
-Material Design 2 vs. 3 analysis that yields Earmark's hybrid design language. Format
+Material Design 2 vs. 3 analysis that yields Dogear's hybrid design language. Format
 research has its own dedicated document ([02-format-support-report.md](02-format-support-report.md)).
 
 ---
@@ -23,28 +23,28 @@ but to extract the patterns that work and avoid the friction that hurts.
 
 ### Synthesized takeaways
 
-**What the best readers get right (and Earmark adopts):**
+**What the best readers get right (and Dogear adopts):**
 
 1. **Reading is sacred.** Kindle, Kobo, and ReadEra all default to a clean page with no
-   permanent chrome. Earmark mandates a distraction-free default with tap zones.
+   permanent chrome. Dogear mandates a distraction-free default with tap zones.
 2. **Local-first is faster and more private.** ReadEra and KOReader prove a snappy,
-   account-free, offline-first experience is a competitive advantage. Earmark is
+   account-free, offline-first experience is a competitive advantage. Dogear is
    offline-first; cloud is a *future* extension point only.
 3. **Reading states matter.** ReadEra's to-read/reading/finished model maps directly to
    our required Unread/Reading/Finished/Abandoned states.
 4. **Rendering engine choice defines quality.** KOReader's crengine and Moon+'s custom
-   engine show that EPUB reflow quality is the differentiator. Earmark invests heavily
+   engine show that EPUB reflow quality is the differentiator. Dogear invests heavily
    in a WebView-based reflow engine with paginated CSS columns (see UX + Architecture).
 
-**What they get wrong (and Earmark avoids):**
+**What they get wrong (and Dogear avoids):**
 
-1. **Settings overload** (Librera, Moon+). Earmark uses progressive disclosure: a small,
+1. **Settings overload** (Librera, Moon+). Dogear uses progressive disclosure: a small,
    well-curated reading menu with an "Advanced" section, not a wall of toggles.
-2. **Account gates and cloud nudges** (Kindle, Kobo, PocketBook). Earmark never requires
+2. **Account gates and cloud nudges** (Kindle, Kobo, PocketBook). Dogear never requires
    an account.
-3. **Dated visuals** (Moon+, older Librera). Earmark uses a modern Material 3 surface with
+3. **Dated visuals** (Moon+, older Librera). Dogear uses a modern Material 3 surface with
    careful restraint.
-4. **Heavyweight apps** (Kindle). Earmark targets a small APK and a low memory ceiling.
+4. **Heavyweight apps** (Kindle). Dogear targets a small APK and a low memory ceiling.
 
 ---
 
@@ -53,11 +53,11 @@ but to extract the patterns that work and avoid the friction that hurts.
 - **WebView / HTML-CSS reflow** (Moon+, ReadEra-style): Best fidelity for EPUB/HTML
   because EPUB *is* XHTML+CSS. Pagination via CSS multi-column (`column-width: 100vw`)
   with horizontal translation is the standard high-performance technique. This is
-  Earmark's primary EPUB path.
+  Dogear's primary EPUB path.
 - **Native canvas rendering** (KOReader crengine): Maximum control and e-ink performance,
   but enormous implementation cost and weaker CSS fidelity. Out of scope for v1.
 - **PDF page rasterization** (MuPDF / Pdfium): PDFs are fixed-layout; rendered as bitmaps
-  per page with tiling for zoom. Earmark uses Android's built-in `PdfRenderer` for v1
+  per page with tiling for zoom. Dogear uses Android's built-in `PdfRenderer` for v1
   with Pdfium/MuPDF considered as an optional upgrade (license permitting).
 
 Decision: **WebView reflow for all reflowable formats; PdfRenderer for PDF; bitmap pager
@@ -69,7 +69,7 @@ for CBZ/CBR.** Details and rationale in [05-architecture.md](05-architecture.md)
 ## 3. Android Tablet UX Research
 
 8-inch tablets and foldables occupy a middle ground between phone and large tablet. Key
-findings driving Earmark's layout:
+findings driving Dogear's layout:
 
 1. **Canonical breakpoints (Material window size classes):**
    - *Compact* width (< 600 dp): phones, folded foldables → single-pane.
@@ -78,15 +78,15 @@ findings driving Earmark's layout:
    - *Expanded* width (≥ 840 dp): tablets in landscape, unfolded foldables → list-detail
      two-pane (library list + book detail; reader + TOC drawer).
 2. **Reading column width is a typography problem, not a screen problem.** Even on a wide
-   screen, body text should hold ~60–75 characters per line. Earmark caps measure with
+   screen, body text should hold ~60–75 characters per line. Dogear caps measure with
    responsive margins rather than letting lines run edge-to-edge. On expanded width it
    offers an optional **two-column page spread** (like a physical book).
 3. **Reachability:** On 8-inch tablets held two-handed, top corners are hard to reach.
    Primary actions live at the bottom or as edge taps. The reader's top menu is opened by
    a top-zone tap rather than requiring a reach to a fixed top bar.
 4. **Orientation:** Tablets are used in both orientations roughly equally; phones skew
-   portrait. Earmark fully supports portrait/landscape and a per-book orientation lock.
-5. **Input diversity:** Tablets attract keyboards and styluses. Earmark supports hardware
+   portrait. Dogear fully supports portrait/landscape and a per-book orientation lock.
+5. **Input diversity:** Tablets attract keyboards and styluses. Dogear supports hardware
    keyboard navigation (arrows, PgUp/PgDn, Home/End, Space) and volume-key paging.
 6. **Foldables:** Handle configuration changes without losing reading position; respect
    fold posture (tabletop / book mode) by using the hinge as a natural two-page gutter
@@ -94,9 +94,9 @@ findings driving Earmark's layout:
 
 ---
 
-## 4. Material Design 2 vs. 3 — and Earmark's Hybrid
+## 4. Material Design 2 vs. 3 — and Dogear's Hybrid
 
-| Dimension | Material 2 (MD2) | Material 3 (MD3) | Earmark hybrid choice |
+| Dimension | Material 2 (MD2) | Material 3 (MD3) | Dogear hybrid choice |
 |-----------|------------------|------------------|------------------------|
 | Color | Fixed primary/accent | Dynamic color (Material You), tonal palettes | **MD3 tonal palettes** as the system, but **10+ curated static palettes** shipped so older devices and users without dynamic color get identical, intentional results. Dynamic color offered as one optional palette on Android 12+. |
 | Shape | Subtle rounding | Larger, expressive rounding | Moderate rounding (12–16 dp) — modern but not cartoonish; restrained for a reading app. |
@@ -118,12 +118,12 @@ The full palette set, reading themes, and component specs are in [04-ux-report.m
 ## 5. Library Management Strategies Observed
 
 - **Smart auto-collections** (ReadEra): to-read/reading/finished derived from progress.
-  Earmark adopts reading states with both automatic transitions and manual override.
-- **User collections + tags** (Calibre-style, Librera): Earmark supports both collections
+  Dogear adopts reading states with both automatic transitions and manual override.
+- **User collections + tags** (Calibre-style, Librera): Dogear supports both collections
   (folders) and free-form tags, with DB-backed filtering.
-- **Series grouping** (Kobo, Calibre): Earmark stores series metadata for future grouping;
+- **Series grouping** (Kobo, Calibre): Dogear stores series metadata for future grouping;
   v1 surfaces it in detail and sort.
-- **Fast search**: All competitors that feel fast use indexed search. Earmark uses Room
+- **Fast search**: All competitors that feel fast use indexed search. Dogear uses Room
   + FTS for instant library and in-book search where practical.
 
 ---

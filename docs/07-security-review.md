@@ -1,6 +1,6 @@
 # Deliverable 7 — Security Review
 
-Earmark ingests untrusted files (downloaded books, web uploads) and runs an optional local
+Dogear ingests untrusted files (downloaded books, web uploads) and runs an optional local
 network server. This document is the threat model and the mitigations applied during
 implementation. Principle: **treat every book file and every upload as hostile.**
 

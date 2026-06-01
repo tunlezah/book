@@ -26,7 +26,7 @@ font overrides).
   critical for accessibility. Atkinson Hyperlegible is engineered specifically for this.
 - **Spacing and measure dominate.** Line length (~60–75 characters), line height
   (~1.4–1.6), and adequate paragraph spacing affect speed and fatigue more than the
-  typeface itself. Earmark therefore exposes line spacing, paragraph spacing, and margins
+  typeface itself. Dogear therefore exposes line spacing, paragraph spacing, and margins
   as first-class controls (see [04-ux-report.md](04-ux-report.md)).
 - **Hinting & rendering:** Fonts with good hinting/instructions render cleanly at body
   sizes on mid-DPI tablets. We prefer well-hinted families and apply font-smoothing CSS.

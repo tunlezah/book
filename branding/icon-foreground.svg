@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Earmark adaptive icon foreground">
-  <title>Earmark icon foreground</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Dogear adaptive icon foreground">
+  <title>Dogear icon foreground</title>
   <desc>Foreground layer for the Android adaptive launcher icon. Content stays within the safe zone (center ~66%).</desc>
   <defs>
     <linearGradient id="fpage" x1="0" y1="0" x2="0" y2="1">
