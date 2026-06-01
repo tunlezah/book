@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.dogear.reader.feature.library"
+    namespace = "com.dogear.reader.feature.upload"
     compileSdk = 35
 
     defaultConfig {
@@ -30,15 +30,14 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:common"))
-    implementation(project(":core:database"))
-    implementation(project(":core:datastore"))
     implementation(project(":core:ui"))
-    implementation(project(":core:cover"))
     implementation(project(":core:ingest"))
-    implementation(project(":format:api"))
+
+    implementation(libs.nanohttpd)
+    implementation(libs.zxing.core)
 
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
@@ -47,11 +46,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material3.window.size)
     implementation(libs.androidx.compose.material.icons.extended)
-
-    implementation(libs.androidx.paging.runtime)
-    implementation(libs.androidx.paging.compose)
 
     implementation(libs.hilt.android)
     implementation(libs.androidx.hilt.navigation.compose)
@@ -61,6 +56,5 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)
-    testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
 }

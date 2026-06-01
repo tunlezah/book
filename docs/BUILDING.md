@@ -34,7 +34,10 @@ the wrapper automatically.
 :core:datastore      Settings (Jetpack DataStore)
 :core:ui             Design system: theme, palettes, typography, components
 :core:cover          Persistent cover/thumbnail cache + generated-cover fallback
-:feature:library     Shelf (grid/list, sort/filter/search), detail, repository, importer
+:core:ingest         BookImporter (file/URI/folder/ZIP/stream) — shared by library + upload
+:feature:library     Shelf (grid/list, sort/filter/search), detail, reader entry, import menu
+:feature:reader      Reader engines, controls, themes, position persistence
+:feature:upload      Local-network web upload server (NanoHTTPD) + QR
 :format:api          BookFormatHandler + FormatRegistry + SafeZip/Magic
 :format:epub         EPUB 2/3 metadata + cover (OPF/OCF)
 :format:pdf          PDF cover via platform PdfRenderer

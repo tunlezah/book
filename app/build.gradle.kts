@@ -53,8 +53,10 @@ dependencies {
     implementation(project(":core:datastore"))
     implementation(project(":core:ui"))
     implementation(project(":core:cover"))
+    implementation(project(":core:ingest"))
     implementation(project(":feature:library"))
     implementation(project(":feature:reader"))
+    implementation(project(":feature:upload"))
 
     // Concrete format handlers — wired into the graph via Hilt multibinding.
     implementation(project(":format:api"))

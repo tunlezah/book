@@ -6,8 +6,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.dogear.reader.core.datastore.SettingsRepository
-import com.dogear.reader.feature.library.data.BookImporter
-import com.dogear.reader.feature.library.data.ImportResult
+import com.dogear.reader.core.ingest.BatchImportResult
+import com.dogear.reader.core.ingest.BookImporter
+import com.dogear.reader.core.ingest.ImportResult
 import com.dogear.reader.core.model.BookFormat
 import com.dogear.reader.core.model.BookShelfItem
 import com.dogear.reader.core.model.LibraryFilter
@@ -118,12 +119,35 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch { repository.seedSampleBooks(count) }
 
     fun importBook(uri: Uri) = viewModelScope.launch {
-        _importMessage.value = when (val result = importer.importFromUri(uri)) {
-            is ImportResult.Imported -> "Added to your library"
-            ImportResult.Duplicate -> "Already in your library"
-            ImportResult.Unsupported -> "Unsupported file type"
-            is ImportResult.Failed -> "Import failed: ${result.reason}"
+        _importMessage.value = describe(importer.importFromUri(uri))
+    }
+
+    fun importBooks(uris: List<Uri>) = viewModelScope.launch {
+        if (uris.isEmpty()) return@launch
+        _importMessage.value = describe(importer.importUris(uris))
+    }
+
+    fun importFolder(treeUri: Uri) = viewModelScope.launch {
+        _importMessage.value = describe(importer.importTree(treeUri))
+    }
+
+    private fun describe(result: ImportResult): String = when (result) {
+        is ImportResult.Imported -> "Added to your library"
+        ImportResult.Duplicate -> "Already in your library"
+        ImportResult.Unsupported -> "Unsupported file type"
+        is ImportResult.Failed -> "Import failed: ${result.reason}"
+        is ImportResult.Archive -> "Imported ${result.imported} from archive" +
+            if (result.skipped > 0) " (${result.skipped} skipped)" else ""
+    }
+
+    private fun describe(result: BatchImportResult): String = buildString {
+        append("Imported ${result.imported}")
+        val extras = buildList {
+            if (result.duplicates > 0) add("${result.duplicates} duplicate")
+            if (result.unsupported > 0) add("${result.unsupported} unsupported")
+            if (result.failed > 0) add("${result.failed} failed")
         }
+        if (extras.isNotEmpty()) append(" · ${extras.joinToString(", ")}")
     }
 
     fun consumeImportMessage() {

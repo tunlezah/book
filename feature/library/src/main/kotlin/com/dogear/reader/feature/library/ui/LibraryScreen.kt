@@ -54,6 +54,7 @@ import com.dogear.reader.feature.library.LibraryViewModel
 @Composable
 fun LibraryScreen(
     onBookClick: (Long) -> Unit,
+    onOpenUpload: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -62,9 +63,13 @@ fun LibraryScreen(
     val importMessage by viewModel.importMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let(viewModel::importBook) }
+    val importFilesLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris -> viewModel.importBooks(uris) }
+
+    val importFolderLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri -> uri?.let(viewModel::importFolder) }
 
     LaunchedEffect(importMessage) {
         importMessage?.let { message ->
@@ -80,7 +85,9 @@ fun LibraryScreen(
             LibraryTopBar(
                 state = state,
                 onSearchChange = viewModel::setSearchQuery,
-                onImportClick = { importLauncher.launch(arrayOf("*/*")) },
+                onImportFiles = { importFilesLauncher.launch(arrayOf("*/*")) },
+                onImportFolder = { importFolderLauncher.launch(null) },
+                onOpenUpload = onOpenUpload,
                 onToggleView = {
                     val next = if (state.viewMode == ViewMode.GRID) ViewMode.LIST else ViewMode.GRID
                     viewModel.setViewMode(next)
@@ -110,12 +117,15 @@ fun LibraryScreen(
 private fun LibraryTopBar(
     state: LibraryUiState,
     onSearchChange: (String) -> Unit,
-    onImportClick: () -> Unit,
+    onImportFiles: () -> Unit,
+    onImportFolder: () -> Unit,
+    onOpenUpload: () -> Unit,
     onToggleView: () -> Unit,
     onSortSelected: (SortOption) -> Unit,
 ) {
     var searching by remember { mutableStateOf(false) }
     var sortMenuOpen by remember { mutableStateOf(false) }
+    var importMenuOpen by remember { mutableStateOf(false) }
 
     TopAppBar(
         title = {
@@ -138,8 +148,24 @@ private fun LibraryTopBar(
                     contentDescription = if (searching) "Close search" else "Search",
                 )
             }
-            IconButton(onClick = onImportClick) {
-                Icon(Icons.Filled.Add, contentDescription = "Import book")
+            Box {
+                IconButton(onClick = { importMenuOpen = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add books")
+                }
+                DropdownMenu(expanded = importMenuOpen, onDismissRequest = { importMenuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Import files") },
+                        onClick = { importMenuOpen = false; onImportFiles() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Import folder") },
+                        onClick = { importMenuOpen = false; onImportFolder() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Web upload…") },
+                        onClick = { importMenuOpen = false; onOpenUpload() },
+                    )
+                }
             }
             IconButton(onClick = onToggleView) {
                 val isGrid = state.viewMode == ViewMode.GRID
