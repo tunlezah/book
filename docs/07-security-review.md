@@ -21,7 +21,7 @@ implementation. Principle: **treat every book file and every upload as hostile.*
 ### A. EPUB / HTML / active content (WebView)
 | Threat | Mitigation |
 |--------|------------|
-| Malicious JavaScript in EPUB/HTML (data exfil, navigation, fingerprinting) | **JavaScript disabled by default** in the reader WebView (`setJavaScriptEnabled(false)`); our pagination/locator uses a minimal, audited script path injected by us only, never publisher script. |
+| Malicious JavaScript in EPUB/HTML (data exfil, navigation, fingerprinting) | **Publisher scripts are stripped** at load time (jsoup removes `<script>`/`iframe`/`object`/`embed` and all `on*`/`javascript:` handlers); the WebView's JS engine is then enabled **solely for our injected, audited pagination/locator code**. No author script ever executes. (Implemented in `HtmlSanitizer` + `ReflowReader`; see Reader Engineering Research §1.) |
 | External resource loads (tracking pixels, SSRF-style fetches, phoning home) | Block all network in the reader: `WebViewClient` denies non-local schemes; resources served **only** via `WebViewAssetLoader`/content provider from inside the book. No `http(s)` egress. |
 | `file://` access / local file disclosure | `setAllowFileAccess(false)`, `setAllowFileAccessFromFileURLs(false)`, `setAllowUniversalAccessFromFileURLs(false)`; serve via virtual `https://appassets/` loader. |
 | Malicious CSS (resource exhaustion, huge layouts) | Sanitize/limit injected CSS; cap document size per spine item; render lazily. |

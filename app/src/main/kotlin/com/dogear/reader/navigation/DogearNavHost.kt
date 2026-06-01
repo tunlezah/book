@@ -9,12 +9,15 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.dogear.reader.feature.library.ui.BookDetailScreen
 import com.dogear.reader.feature.library.ui.LibraryScreen
+import com.dogear.reader.feature.reader.ui.ReaderScreen
 
-/** Top-level navigation graph. New feature destinations (reader, settings, upload) slot in here. */
+/** Top-level navigation graph. New feature destinations (settings, upload) slot in here. */
 object Routes {
     const val LIBRARY = "library"
     const val BOOK_DETAIL = "book/{bookId}"
+    const val READER = "reader/{bookId}"
     fun bookDetail(bookId: Long): String = "book/$bookId"
+    fun reader(bookId: Long): String = "reader/$bookId"
 }
 
 @Composable
@@ -28,8 +31,18 @@ fun DogearNavHost(navController: NavHostController = rememberNavController()) {
         composable(
             route = Routes.BOOK_DETAIL,
             arguments = listOf(navArgument("bookId") { type = NavType.LongType }),
+        ) { entry ->
+            val bookId = entry.arguments?.getLong("bookId") ?: 0L
+            BookDetailScreen(
+                onBack = { navController.popBackStack() },
+                onRead = { navController.navigate(Routes.reader(bookId)) },
+            )
+        }
+        composable(
+            route = Routes.READER,
+            arguments = listOf(navArgument("bookId") { type = NavType.LongType }),
         ) {
-            BookDetailScreen(onBack = { navController.popBackStack() })
+            ReaderScreen(onBack = { navController.popBackStack() })
         }
     }
 }

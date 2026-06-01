@@ -6,6 +6,7 @@ import com.dogear.reader.format.api.BookFormatHandler
 import com.dogear.reader.format.api.FileRef
 import com.dogear.reader.format.api.ProbeResult
 import com.dogear.reader.format.api.RawImage
+import com.dogear.reader.format.api.content.BookContent
 import com.dogear.reader.format.api.io.SafeZip
 import com.dogear.reader.format.api.materialize
 import java.io.File
@@ -36,6 +37,8 @@ class EpubFormatHandler @Inject constructor() : BookFormatHandler {
         val opf = readOpf(file) ?: return BookMetadata.Empty
         return opf.metadata
     }
+
+    override suspend fun openContent(ref: FileRef): BookContent = EpubContent(ref.materialize())
 
     override suspend fun extractCover(ref: FileRef): RawImage? {
         val file = ref.materialize()

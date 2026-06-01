@@ -14,6 +14,52 @@ internal object OpfParser {
 
     data class Opf(val metadata: BookMetadata, val coverHref: String?)
 
+    data class Item(val id: String, val href: String, val mediaType: String?, val properties: String?)
+
+    /** Spine/manifest needed to open the book for reading (hrefs are OPF-relative). */
+    data class Package(
+        val manifest: Map<String, Item>,
+        val spineHrefs: List<String>,
+        val navHref: String?,
+        val ncxHref: String?,
+    )
+
+    fun parsePackage(bytes: ByteArray): Package = runCatching {
+        val parser = newParser(bytes)
+        val manifest = LinkedHashMap<String, Item>()
+        val spineIds = mutableListOf<String>()
+        var spineTocId: String? = null
+
+        var event = parser.eventType
+        while (event != XmlPullParser.END_DOCUMENT) {
+            if (event == XmlPullParser.START_TAG) {
+                when (parser.name) {
+                    "item" -> {
+                        val id = parser.getAttributeValue(null, "id")
+                        val href = parser.getAttributeValue(null, "href")
+                        if (id != null && href != null) {
+                            manifest[id] = Item(
+                                id = id,
+                                href = href,
+                                mediaType = parser.getAttributeValue(null, "media-type"),
+                                properties = parser.getAttributeValue(null, "properties"),
+                            )
+                        }
+                    }
+                    "spine" -> spineTocId = parser.getAttributeValue(null, "toc")
+                    "itemref" -> parser.getAttributeValue(null, "idref")?.let { spineIds += it }
+                }
+            }
+            event = parser.next()
+        }
+
+        val spineHrefs = spineIds.mapNotNull { manifest[it]?.href }
+        val navHref = manifest.values.firstOrNull { it.properties?.contains("nav") == true }?.href
+        val ncxHref = spineTocId?.let { manifest[it]?.href }
+            ?: manifest.values.firstOrNull { it.mediaType == "application/x-dtbncx+xml" }?.href
+        Package(manifest, spineHrefs, navHref, ncxHref)
+    }.getOrDefault(Package(emptyMap(), emptyList(), null, null))
+
     /** Returns the OPF rootfile path from META-INF/container.xml, or null. */
     fun parseContainer(bytes: ByteArray): String? = runCatching {
         val parser = newParser(bytes)

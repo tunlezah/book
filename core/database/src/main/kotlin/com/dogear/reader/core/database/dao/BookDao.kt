@@ -52,6 +52,9 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id")
     suspend fun getBook(id: Long): BookEntity?
 
+    @Query("SELECT * FROM book_files WHERE book_id = :bookId LIMIT 1")
+    suspend fun getPrimaryFile(bookId: Long): BookFileEntity?
+
     @Query("SELECT EXISTS(SELECT 1 FROM books WHERE content_hash = :hash)")
     suspend fun existsByHash(hash: String): Boolean
 

@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":format:api"))
     implementation(project(":core:model"))
 
+    implementation(libs.jsoup)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

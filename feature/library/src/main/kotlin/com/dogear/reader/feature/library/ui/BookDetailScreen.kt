@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -34,6 +35,7 @@ import com.dogear.reader.core.ui.component.BookCover
 @Composable
 fun BookDetailScreen(
     onBack: () -> Unit,
+    onRead: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BookDetailViewModel = hiltViewModel(),
 ) {
@@ -60,6 +62,7 @@ fun BookDetailScreen(
         BookDetailContent(
             book = current,
             onStateChange = viewModel::setReadingState,
+            onRead = onRead,
             modifier = Modifier.padding(padding),
         )
     }
@@ -70,6 +73,7 @@ fun BookDetailScreen(
 private fun BookDetailContent(
     book: Book,
     onStateChange: (ReadingState) -> Unit,
+    onRead: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -78,6 +82,12 @@ private fun BookDetailContent(
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
+        Button(
+            onClick = onRead,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+        ) {
+            Text("Read")
+        }
         Row(modifier = Modifier.fillMaxWidth()) {
             BookCover(
                 title = book.title,

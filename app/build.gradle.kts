@@ -54,6 +54,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:cover"))
     implementation(project(":feature:library"))
+    implementation(project(":feature:reader"))
 
     // Concrete format handlers — wired into the graph via Hilt multibinding.
     implementation(project(":format:api"))

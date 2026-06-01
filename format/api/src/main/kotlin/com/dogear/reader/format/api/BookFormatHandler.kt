@@ -2,11 +2,11 @@ package com.dogear.reader.format.api
 
 import com.dogear.reader.core.model.BookFormat
 import com.dogear.reader.core.model.BookMetadata
+import com.dogear.reader.format.api.content.BookContent
 
 /**
- * The format extension point (Architecture §4). Each handler probes, then extracts metadata
- * and a cover. The reader's `openContent` lands in Phase 3 alongside the render engines, so it
- * is intentionally absent here to keep Phase 2 focused on the shelf/indexer path.
+ * The format extension point (Architecture §4). Each handler probes, extracts metadata and a
+ * cover, and opens readable [BookContent] for the reader.
  *
  * Handlers must be defensive: malformed input is rejected (return null / false), never crashes
  * (see Security Review). All methods run off the main thread.
@@ -29,6 +29,9 @@ interface BookFormatHandler {
 
     /** The embedded cover if present, else null (the importer then generates one). */
     suspend fun extractCover(ref: FileRef): RawImage?
+
+    /** Opens readable content for the reader. The caller must [BookContent.close] it when done. */
+    suspend fun openContent(ref: FileRef): BookContent
 }
 
 /** The outcome of a probe: whether this handler matches, and the concrete format if so. */

@@ -11,6 +11,7 @@ import com.dogear.reader.format.api.BookFormatHandler
 import com.dogear.reader.format.api.FileRef
 import com.dogear.reader.format.api.ProbeResult
 import com.dogear.reader.format.api.RawImage
+import com.dogear.reader.format.api.content.BookContent
 import com.dogear.reader.format.api.io.Magic
 import com.dogear.reader.format.api.materialize
 import java.io.ByteArrayOutputStream
@@ -31,6 +32,8 @@ class PdfFormatHandler @Inject constructor() : BookFormatHandler {
         if (Magic.isPdf(Magic.header(ref, 5))) ProbeResult.of(BookFormat.PDF) else ProbeResult.NoMatch
 
     override suspend fun extractMetadata(ref: FileRef): BookMetadata = BookMetadata.Empty
+
+    override suspend fun openContent(ref: FileRef): BookContent = PdfContent(ref.materialize())
 
     override suspend fun extractCover(ref: FileRef): RawImage? = runCatching {
         val file = ref.materialize()

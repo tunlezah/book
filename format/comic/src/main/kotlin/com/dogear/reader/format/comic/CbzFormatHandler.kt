@@ -6,6 +6,7 @@ import com.dogear.reader.format.api.BookFormatHandler
 import com.dogear.reader.format.api.FileRef
 import com.dogear.reader.format.api.ProbeResult
 import com.dogear.reader.format.api.RawImage
+import com.dogear.reader.format.api.content.BookContent
 import com.dogear.reader.format.api.io.SafeZip
 import com.dogear.reader.format.api.materialize
 import java.io.File
@@ -29,6 +30,8 @@ class CbzFormatHandler @Inject constructor() : BookFormatHandler {
     }
 
     override suspend fun extractMetadata(ref: FileRef): BookMetadata = BookMetadata.Empty
+
+    override suspend fun openContent(ref: FileRef): BookContent = CbzContent(ref.materialize())
 
     override suspend fun extractCover(ref: FileRef): RawImage? {
         val file = ref.materialize()

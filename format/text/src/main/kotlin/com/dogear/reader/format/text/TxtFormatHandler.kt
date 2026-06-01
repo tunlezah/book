@@ -6,6 +6,7 @@ import com.dogear.reader.format.api.BookFormatHandler
 import com.dogear.reader.format.api.FileRef
 import com.dogear.reader.format.api.ProbeResult
 import com.dogear.reader.format.api.RawImage
+import com.dogear.reader.format.api.content.BookContent
 import javax.inject.Inject
 
 /**
@@ -42,6 +43,8 @@ class TxtFormatHandler @Inject constructor() : BookFormatHandler {
     }
 
     override suspend fun extractCover(ref: FileRef): RawImage? = null
+
+    override suspend fun openContent(ref: FileRef): BookContent = TxtContent(ref)
 
     private fun looksLikeText(bytes: ByteArray): Boolean {
         if (bytes.isEmpty()) return false

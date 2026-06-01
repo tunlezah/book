@@ -2,6 +2,7 @@ package com.dogear.reader.format.api
 
 import com.dogear.reader.core.model.BookFormat
 import com.dogear.reader.core.model.BookMetadata
+import com.dogear.reader.format.api.content.BookContent
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -49,6 +50,11 @@ class FormatRegistryTest {
             if (matches) ProbeResult.of(format) else ProbeResult.NoMatch
         override suspend fun extractMetadata(ref: FileRef): BookMetadata = BookMetadata.Empty
         override suspend fun extractCover(ref: FileRef): RawImage? = null
+        override suspend fun openContent(ref: FileRef): BookContent =
+            object : BookContent.ImagePager {
+                override val pageCount: Int = 0
+                override suspend fun page(index: Int, target: android.util.Size) = null
+            }
     }
 
     private class FakeRef : FileRef {
