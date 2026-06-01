@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main, "claude/**" ]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -12,7 +13,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -34,11 +35,20 @@ jobs:
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.9
 
+      # Build the APK first — it is the primary deliverable.
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dogear-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
       - name: Unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon testDebugUnitTest --stacktrace
 
       - name: Lint
-        run: ./gradlew --no-daemon lintDebug
-
-      - name: Assemble debug APK
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon lintDebug --stacktrace
