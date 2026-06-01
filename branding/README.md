@@ -20,24 +20,18 @@ The mark blends a **book with a dog**: one ear perked **up**, the other **folded
 a dog-eared page (the gold fold). Warm paper + gold-fold + ink palette echoes the Cream and
 Sepia reading themes.
 
-Two concepts are under review:
-
-| Concept | File | Character |
-|---------|------|-----------|
-| **A — Pup** | [`logo-concept-a.svg`](logo-concept-a.svg) | The book cover is a full puppy face (eyes, snout, nose); left ear up, right ear folded. Friendly, characterful. |
-| **B — Minimal** | [`logo-concept-b.svg`](logo-concept-b.svg) | A cleaner, iconic page whose two top corners read as ears (one up, one folded), with subtle dot eyes, a snout, and a couple of text lines. Reads as both book and dog; scales better to tiny sizes. |
-
-Once a concept is chosen it becomes the canonical `logo.svg`, and the adaptive-icon layers
-below are regenerated to match.
+**Chosen design: Concept A — "Pup."** The book cover is a friendly puppy face (eyes, snout,
+nose) with the left ear erect and the right ear folded into the dog-eared page fold. It is
+now the canonical `logo.svg`, and the adaptive-icon layers are derived from it.
 
 | Asset | File | Use |
 |-------|------|-----|
-| Primary logo | `logo.svg` | App store, web, splash, about screen |
-| Adaptive icon — foreground | `icon-foreground.svg` | Android adaptive icon foreground (art in safe zone) |
-| Adaptive icon — background | `icon-background.svg` | Android adaptive icon background (full-bleed) |
+| Primary logo | [`logo.svg`](logo.svg) | App store, web, splash, about screen |
+| Adaptive icon — foreground | [`icon-foreground.svg`](icon-foreground.svg) | Android adaptive icon foreground (Pup art scaled into the safe zone) |
+| Adaptive icon — background | [`icon-background.svg`](icon-background.svg) | Android adaptive icon background (full-bleed) |
 
-> Note: `logo.svg` and the `icon-*.svg` files currently hold the earlier page-only mark and
-> will be replaced with the chosen book-dog concept.
+Concept exploration is kept for reference: [`logo-concept-a.svg`](logo-concept-a.svg)
+(selected) and [`logo-concept-b.svg`](logo-concept-b.svg) (minimal alternative).
 
 ### Palette
 | Role | Hex |
