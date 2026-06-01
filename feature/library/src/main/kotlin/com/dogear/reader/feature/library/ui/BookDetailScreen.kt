@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dogear.reader.core.model.Book
 import com.dogear.reader.core.model.ReadingState
 import com.dogear.reader.core.ui.component.BookCover
+import com.dogear.reader.feature.library.BookDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
