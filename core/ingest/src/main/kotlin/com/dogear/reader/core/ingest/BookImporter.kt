@@ -8,12 +8,15 @@ import com.dogear.reader.core.common.dispatchers.IoDispatcher
 import com.dogear.reader.core.common.io.Hashing
 import com.dogear.reader.core.cover.CoverCache
 import com.dogear.reader.core.database.dao.BookDao
+import android.graphics.BitmapFactory
 import com.dogear.reader.core.database.entity.BookFileEntity
+import com.dogear.reader.core.database.mapper.toDomain
 import com.dogear.reader.core.database.mapper.toEntity
 import com.dogear.reader.core.model.Book
 import com.dogear.reader.core.model.BookFormat
 import com.dogear.reader.format.api.FileBackedRef
 import com.dogear.reader.format.api.FormatRegistry
+import com.dogear.reader.format.api.RawImage
 import com.dogear.reader.format.api.io.SafeZip
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -84,6 +87,61 @@ class BookImporter @Inject constructor(
                 entry.isFile && isImportableName(entry.name) -> out += entry.uri
             }
         }
+    }
+
+    /** Re-extracts metadata and cover from the stored file, overwriting current values. */
+    suspend fun refreshMetadata(bookId: Long): Boolean = withContext(io) {
+        val entity = bookDao.getBook(bookId) ?: return@withContext false
+        val fileRow = bookDao.getPrimaryFile(bookId) ?: return@withContext false
+        val file = File(fileRow.uri)
+        if (!file.exists()) return@withContext false
+        val ref = FileBackedRef(file, fileRow.displayName)
+        val handler = formatRegistry.handlerFor(entity.toDomain().format)
+            ?: formatRegistry.resolve(ref)?.handler
+            ?: return@withContext false
+
+        val metadata = runCatching { handler.extractMetadata(ref) }.getOrNull()
+        val title = metadata?.title?.takeIf { it.isNotBlank() } ?: entity.title
+        val author = metadata?.authors?.firstOrNull()?.takeIf { it.isNotBlank() } ?: entity.author
+        coverCache.delete(entity.contentHash)
+        val rawCover = runCatching { handler.extractCover(ref) }.getOrNull()
+        val storedCover = rawCover?.let { coverCache.storeFromRaw(entity.contentHash, it) }
+        val coverPath = storedCover ?: coverCache.storeGenerated(entity.contentHash, title, author)
+
+        val updated = entity.toDomain().copy(
+            title = title,
+            author = author,
+            authors = metadata?.authors ?: emptyList(),
+            publisher = metadata?.publisher,
+            publishedDate = metadata?.publishedDate,
+            description = metadata?.description,
+            isbn = metadata?.isbn,
+            language = metadata?.language,
+            categories = metadata?.categories ?: emptyList(),
+            coverPath = coverPath,
+            coverIsGenerated = storedCover == null,
+            metadataLocked = false,
+        )
+        bookDao.upsert(updated.toEntity())
+        true
+    }
+
+    /** Replaces a book's cover with a user-picked image. */
+    suspend fun replaceCover(bookId: Long, imageUri: Uri): Boolean = withContext(io) {
+        val entity = bookDao.getBook(bookId) ?: return@withContext false
+        val bytes = runCatching {
+            context.contentResolver.openInputStream(imageUri)?.use { it.readBytes() }
+        }.getOrNull() ?: return@withContext false
+        // Reject anything that doesn't decode as an image.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0) return@withContext false
+
+        coverCache.delete(entity.contentHash)
+        val path = coverCache.storeFromRaw(entity.contentHash, RawImage(bytes, null))
+            ?: return@withContext false
+        bookDao.upsert(entity.copy(coverPath = path, coverIsGenerated = false))
+        true
     }
 
     // --- core pipeline ---

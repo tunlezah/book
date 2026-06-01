@@ -32,6 +32,8 @@ interface LibraryRepository {
 
     suspend fun setReadingState(bookId: Long, state: ReadingState)
 
+    suspend fun updateBook(book: Book)
+
     suspend fun markOpened(bookId: Long)
 
     suspend fun deleteBook(bookId: Long)

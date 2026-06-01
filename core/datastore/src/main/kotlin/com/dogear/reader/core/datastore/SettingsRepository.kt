@@ -63,6 +63,21 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    /** Overwrites all settings (used by Restore). */
+    suspend fun restore(app: AppSettings, reader: ReaderSettings) {
+        dataStore.edit { prefs ->
+            prefs[Keys.THEME_MODE] = app.themeMode.name
+            prefs[Keys.PALETTE] = app.palette.name
+            prefs[Keys.UI_FONT] = app.uiFont.name
+            prefs[Keys.READER_FONT] = app.readerFont.name
+            prefs[Keys.VIEW_MODE] = app.viewMode.name
+            prefs[Keys.SORT] = app.sort.name
+            prefs[Keys.SORT_ASC] = app.sortAscending
+            prefs[Keys.TUTORIAL] = app.showTutorialOverlay
+            prefs.writeReaderSettings(reader)
+        }
+    }
+
     private suspend fun put(key: Preferences.Key<String>, value: String) {
         dataStore.edit { it[key] = value }
     }

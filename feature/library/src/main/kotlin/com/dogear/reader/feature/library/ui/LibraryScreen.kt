@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +56,7 @@ import com.dogear.reader.feature.library.LibraryViewModel
 fun LibraryScreen(
     onBookClick: (Long) -> Unit,
     onOpenUpload: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -88,6 +90,7 @@ fun LibraryScreen(
                 onImportFiles = { importFilesLauncher.launch(arrayOf("*/*")) },
                 onImportFolder = { importFolderLauncher.launch(null) },
                 onOpenUpload = onOpenUpload,
+                onOpenSettings = onOpenSettings,
                 onToggleView = {
                     val next = if (state.viewMode == ViewMode.GRID) ViewMode.LIST else ViewMode.GRID
                     viewModel.setViewMode(next)
@@ -120,6 +123,7 @@ private fun LibraryTopBar(
     onImportFiles: () -> Unit,
     onImportFolder: () -> Unit,
     onOpenUpload: () -> Unit,
+    onOpenSettings: () -> Unit,
     onToggleView: () -> Unit,
     onSortSelected: (SortOption) -> Unit,
 ) {
@@ -189,6 +193,9 @@ private fun LibraryTopBar(
                         )
                     }
                 }
+            }
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Filled.Settings, contentDescription = "Settings")
             }
         },
     )

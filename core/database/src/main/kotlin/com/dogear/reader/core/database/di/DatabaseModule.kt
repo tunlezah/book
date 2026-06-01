@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.dogear.reader.core.database.DogearDatabase
 import com.dogear.reader.core.database.dao.AnnotationDao
+import com.dogear.reader.core.database.dao.BackupDao
 import com.dogear.reader.core.database.dao.BookDao
 import com.dogear.reader.core.database.dao.OrganizationDao
 import com.dogear.reader.core.database.dao.ReadingProgressDao
@@ -39,4 +40,7 @@ object DatabaseModule {
 
     @Provides
     fun provideAnnotationDao(database: DogearDatabase): AnnotationDao = database.annotationDao()
+
+    @Provides
+    fun provideBackupDao(database: DogearDatabase): BackupDao = database.backupDao()
 }

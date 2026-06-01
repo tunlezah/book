@@ -10,14 +10,16 @@ import androidx.navigation.navArgument
 import com.dogear.reader.feature.library.ui.BookDetailScreen
 import com.dogear.reader.feature.library.ui.LibraryScreen
 import com.dogear.reader.feature.reader.ui.ReaderScreen
+import com.dogear.reader.feature.settings.SettingsScreen
 import com.dogear.reader.feature.upload.UploadScreen
 
-/** Top-level navigation graph. New feature destinations (settings) slot in here. */
+/** Top-level navigation graph. */
 object Routes {
     const val LIBRARY = "library"
     const val BOOK_DETAIL = "book/{bookId}"
     const val READER = "reader/{bookId}"
     const val UPLOAD = "upload"
+    const val SETTINGS = "settings"
     fun bookDetail(bookId: Long): String = "book/$bookId"
     fun reader(bookId: Long): String = "reader/$bookId"
 }
@@ -29,6 +31,7 @@ fun DogearNavHost(navController: NavHostController = rememberNavController()) {
             LibraryScreen(
                 onBookClick = { bookId -> navController.navigate(Routes.bookDetail(bookId)) },
                 onOpenUpload = { navController.navigate(Routes.UPLOAD) },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(
@@ -49,6 +52,9 @@ fun DogearNavHost(navController: NavHostController = rememberNavController()) {
         }
         composable(Routes.UPLOAD) {
             UploadScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
     }
 }

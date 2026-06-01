@@ -10,6 +10,7 @@ import com.dogear.reader.core.database.dao.BookDao
 import com.dogear.reader.core.database.dao.OrganizationDao
 import com.dogear.reader.core.database.entity.BookEntity
 import com.dogear.reader.core.database.mapper.toDomain
+import com.dogear.reader.core.database.mapper.toEntity
 import com.dogear.reader.core.model.Book
 import com.dogear.reader.core.model.BookFormat
 import com.dogear.reader.core.model.BookShelfItem
@@ -63,6 +64,9 @@ class LibraryRepositoryImpl @Inject constructor(
 
     override suspend fun setReadingState(bookId: Long, state: ReadingState) =
         withContext(ioDispatcher) { bookDao.updateReadingState(bookId, state.name) }
+
+    override suspend fun updateBook(book: Book) =
+        withContext(ioDispatcher) { bookDao.upsert(book.toEntity()) }
 
     override suspend fun markOpened(bookId: Long) =
         withContext(ioDispatcher) { bookDao.updateLastOpened(bookId, System.currentTimeMillis()) }

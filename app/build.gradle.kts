@@ -57,6 +57,7 @@ dependencies {
     implementation(project(":feature:library"))
     implementation(project(":feature:reader"))
     implementation(project(":feature:upload"))
+    implementation(project(":feature:settings"))
 
     // Concrete format handlers — wired into the graph via Hilt multibinding.
     implementation(project(":format:api"))
