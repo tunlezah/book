@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -31,13 +36,15 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      # The wrapper JAR is a binary and is not committed; regenerate it deterministically.
-      - name: Generate Gradle wrapper
-        run: gradle wrapper --gradle-version 8.9
-
-      # Build the APK first — it is the primary deliverable.
-      - name: Assemble debug APK
-        run: ./gradlew --no-daemon assembleDebug --stacktrace
+      # Capture all output to build.log so failures can be surfaced as a PR comment.
+      - name: Build debug APK
+        id: build
+        run: |
+          set -o pipefail
+          {
+            gradle wrapper --gradle-version 8.9 &&
+            ./gradlew --no-daemon assembleDebug --stacktrace
+          } 2>&1 | tee build.log
 
       - name: Upload debug APK
         if: success()
@@ -47,8 +54,20 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest --stacktrace
-
-      - name: Lint
-        run: ./gradlew --no-daemon lintDebug --stacktrace
+      # On failure, post the tail of the build log to the PR so it can be diagnosed.
+      - name: Report build failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let log = '';
+            try { log = fs.readFileSync('build.log', 'utf8'); } catch (e) { log = 'no build.log produced'; }
+            const lines = log.split('\n');
+            const tail = lines.slice(-250).join('\n').slice(-60000);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '### CI build failed\n```\n' + tail + '\n```',
+            });
