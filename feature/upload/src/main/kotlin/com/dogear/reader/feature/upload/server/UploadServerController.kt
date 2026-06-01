@@ -43,6 +43,7 @@ class UploadServerController @Inject constructor(
         }
         try {
             val srv = UploadServer(host, port, password?.ifBlank { null }, ::onUploaded)
+            srv.setAsyncRunner(BoundedRunner(MAX_CONNECTIONS))
             srv.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
             server = srv
             _status.value = ServerStatus(running = true, url = "http://$host:$port", error = null)
@@ -63,5 +64,9 @@ class UploadServerController @Inject constructor(
             _status.update { it.copy(uploadedCount = it.uploadedCount + 1) }
         }
         return result
+    }
+
+    private companion object {
+        const val MAX_CONNECTIONS = 4
     }
 }

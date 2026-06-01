@@ -82,4 +82,6 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+    // Detects leaks in debug builds (reader WebView, bitmaps) — Performance strategy §9.
+    debugImplementation(libs.leakcanary.android)
 }
