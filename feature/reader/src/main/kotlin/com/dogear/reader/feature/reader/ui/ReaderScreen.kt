@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -66,8 +67,9 @@ fun ReaderScreen(
     val scope = rememberCoroutineScope()
     val commands = remember { MutableSharedFlow<ReaderCommand>(extraBufferCapacity = 8) }
     var showToc by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
-    ReaderSystemUi(immersive = true)
+    ReaderSystemUi(settings = state.settings)
 
     Box(modifier = Modifier.fillMaxSize().background(state.theme.background)) {
         val current = content
@@ -81,7 +83,8 @@ fun ReaderScreen(
             current is BookContent.Reflowable -> ReflowReader(
                 content = current,
                 initialLocator = state.initialLocator,
-                style = reflowStyle(state.theme, state.readerFont),
+                style = reflowStyle(state.theme, state.readerFont, state.settings),
+                smoothPaging = state.settings.pageAnimation == com.dogear.reader.core.model.PageAnimation.SLIDE,
                 commands = commands,
                 onProgress = { viewModel.onProgress(it, null) },
             )
@@ -122,11 +125,22 @@ fun ReaderScreen(
             progression = state.progression,
             onBack = onBack,
             onOpenToc = openTocAction,
+            onOpenSettings = { showSettings = true },
         )
 
         if (state.showTutorial && !state.loading) {
             TutorialOverlay(onDismiss = viewModel::dismissTutorial)
         }
+    }
+
+    if (showSettings) {
+        ReaderControlsSheet(
+            settings = state.settings,
+            font = state.readerFont,
+            onUpdate = viewModel::updateReader,
+            onFontChange = viewModel::setReaderFont,
+            onDismiss = { showSettings = false },
+        )
     }
 
     if (showToc) {
@@ -181,6 +195,7 @@ private fun ReaderControls(
     progression: Float,
     onBack: () -> Unit,
     onOpenToc: (() -> Unit)?,
+    onOpenSettings: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
@@ -204,6 +219,9 @@ private fun ReaderControls(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                     )
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.FormatSize, contentDescription = "Reading settings")
+                    }
                     if (onOpenToc != null) {
                         IconButton(onClick = onOpenToc) {
                             Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Table of contents")

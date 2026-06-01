@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ internal fun ReflowReader(
     content: BookContent.Reflowable,
     initialLocator: Locator?,
     style: ReflowStyle,
+    smoothPaging: Boolean,
     commands: SharedFlow<ReaderCommand>,
     onProgress: (Locator) -> Unit,
 ) {
@@ -52,6 +54,9 @@ internal fun ReflowReader(
     var spineCount by remember { mutableIntStateOf(1) }
     var currentSpine by remember { mutableIntStateOf(initialLocator?.spineIndex ?: 0) }
     val pendingFraction = remember { mutableFloatStateOf(0f) }
+    // Last known position within the current document, so a style change re-anchors here.
+    val currentFraction = remember { mutableFloatStateOf(0f) }
+    var initialized by remember { mutableStateOf(false) }
     val bridge = remember { PaginationBridge() }
 
     val webView = remember {
@@ -79,17 +84,22 @@ internal fun ReflowReader(
     LaunchedEffect(bridge) {
         bridge.events.collect { (count, current) ->
             val docFraction = if (count <= 1) 0f else current.toFloat() / (count - 1)
+            currentFraction.floatValue = docFraction
             val overall = if (spineCount <= 0) 0f else (currentSpine + docFraction) / spineCount
             onProgress(Locator(spineIndex = currentSpine, progression = overall.coerceIn(0f, 1f)))
         }
     }
 
-    LaunchedEffect(Unit) {
+    // Initial load + live re-render when typography/theme/animation change, re-anchoring position.
+    LaunchedEffect(style, smoothPaging) {
         spineCount = content.spine().size.coerceAtLeast(1)
-        val initFraction = initialLocator
-            ?.let { (it.progression * spineCount - currentSpine).coerceIn(0f, 1f) }
-            ?: 0f
-        loadSpine(webView, content, currentSpine, initFraction, style, pendingFraction)
+        val fraction = if (!initialized) {
+            initialized = true
+            initialLocator?.let { (it.progression * spineCount - currentSpine).coerceIn(0f, 1f) } ?: 0f
+        } else {
+            currentFraction.floatValue
+        }
+        loadSpine(webView, content, currentSpine, fraction, style, smoothPaging, pendingFraction)
     }
 
     LaunchedEffect(commands) {
@@ -99,19 +109,19 @@ internal fun ReflowReader(
                     val moved = webView.evalBoolean("window.DogearPager ? DogearPager.next() : false")
                     if (!moved && currentSpine < spineCount - 1) {
                         currentSpine += 1
-                        loadSpine(webView, content, currentSpine, 0f, style, pendingFraction)
+                        loadSpine(webView, content, currentSpine, 0f, style, smoothPaging, pendingFraction)
                     }
                 }
                 ReaderCommand.Previous -> {
                     val moved = webView.evalBoolean("window.DogearPager ? DogearPager.prev() : false")
                     if (!moved && currentSpine > 0) {
                         currentSpine -= 1
-                        loadSpine(webView, content, currentSpine, 1f, style, pendingFraction)
+                        loadSpine(webView, content, currentSpine, 1f, style, smoothPaging, pendingFraction)
                     }
                 }
                 is ReaderCommand.GoTo -> {
                     currentSpine = command.spineIndex
-                    loadSpine(webView, content, currentSpine, command.fraction, style, pendingFraction)
+                    loadSpine(webView, content, currentSpine, command.fraction, style, smoothPaging, pendingFraction)
                 }
             }
         }
@@ -130,11 +140,12 @@ private suspend fun loadSpine(
     index: Int,
     fraction: Float,
     style: ReflowStyle,
+    smoothPaging: Boolean,
     pendingFraction: androidx.compose.runtime.MutableFloatState,
 ) {
     pendingFraction.floatValue = fraction
     val doc = withContext(Dispatchers.IO) { content.document(index) }
-    val html = ReaderAssets.buildHtml(doc.html, style)
+    val html = ReaderAssets.buildHtml(doc.html, style, smoothPaging)
     val base = "https://dogear.local/book/" + if (doc.basePath.isEmpty()) "" else "${doc.basePath}/"
     webView.loadDataWithBaseURL(base, html, "text/html", "utf-8", null)
 }

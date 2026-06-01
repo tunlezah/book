@@ -3,14 +3,28 @@ package com.dogear.reader.feature.reader
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.dogear.reader.core.model.FontChoice
+import com.dogear.reader.core.model.ReaderSettings
+import com.dogear.reader.core.ui.theme.ReadingThemeColors
 import com.dogear.reader.feature.reader.reflow.ReflowStyle
 
-/** Maps the reading theme + chosen font into the CSS inputs for the reflow engine. */
-internal fun reflowStyle(theme: ReadingThemeColors, font: FontChoice): ReflowStyle = ReflowStyle(
+/** Maps the reading theme + chosen font + reader settings into the CSS inputs for the engine. */
+internal fun reflowStyle(
+    theme: ReadingThemeColors,
+    font: FontChoice,
+    settings: ReaderSettings,
+): ReflowStyle = ReflowStyle(
     fontFamilyCss = font.toCssFontStack(),
+    fontSizePx = settings.fontSizeSp,
+    fontWeight = settings.fontWeight,
+    lineHeight = settings.lineHeight,
+    paragraphSpacingEm = settings.paragraphSpacingEm,
+    horizontalMarginPx = settings.marginHorizontalDp,
+    verticalMarginPx = settings.marginVerticalDp,
     textColor = theme.text.toCssHex(),
     backgroundColor = theme.background.toCssHex(),
     linkColor = theme.link.toCssHex(),
+    textAlign = settings.textAlign.css,
+    hyphens = settings.hyphenation,
 )
 
 internal fun Color.toCssHex(): String = String.format("#%06X", 0xFFFFFF and toArgb())

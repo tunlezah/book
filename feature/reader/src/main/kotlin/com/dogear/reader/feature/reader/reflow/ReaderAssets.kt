@@ -4,13 +4,16 @@ package com.dogear.reader.feature.reader.reflow
 data class ReflowStyle(
     val fontFamilyCss: String,
     val fontSizePx: Int = 18,
+    val fontWeight: Int = 400,
     val lineHeight: Float = 1.5f,
+    val paragraphSpacingEm: Float = 0.8f,
     val horizontalMarginPx: Int = 24,
     val verticalMarginPx: Int = 24,
     val textColor: String = "#5F4B32",
     val backgroundColor: String = "#FBF0D9",
     val linkColor: String = "#8A5A2B",
     val textAlign: String = "left",
+    val hyphens: Boolean = true,
 )
 
 /**
@@ -23,10 +26,11 @@ data class ReflowStyle(
  */
 internal object ReaderAssets {
 
-    fun buildHtml(bodyHtml: String, style: ReflowStyle): String {
+    fun buildHtml(bodyHtml: String, style: ReflowStyle, smoothPaging: Boolean = false): String {
         val css = css(style)
         val styleTag = "<style id=\"dogear-style\">$css</style>"
-        val scriptTag = "<script id=\"dogear-pager\">$PAGINATION_JS</script>"
+        val scriptTag =
+            "<script id=\"dogear-pager\">window.__dogearSmooth=$smoothPaging;\n$PAGINATION_JS</script>"
 
         var html = bodyHtml
         html = if (html.contains("</head>", ignoreCase = true)) {
@@ -56,13 +60,14 @@ internal object ReaderAssets {
             overflow: hidden;
             font-family: ${s.fontFamilyCss};
             font-size: ${s.fontSizePx}px;
+            font-weight: ${s.fontWeight};
             line-height: ${s.lineHeight};
             color: ${s.textColor};
             background: ${s.backgroundColor};
             text-align: ${s.textAlign};
             word-wrap: break-word;
-            -webkit-hyphens: auto;
-            hyphens: auto;
+            -webkit-hyphens: ${if (s.hyphens) "auto" else "none"};
+            hyphens: ${if (s.hyphens) "auto" else "none"};
         }
         img, svg, video {
             max-width: 100% !important;
@@ -76,7 +81,7 @@ internal object ReaderAssets {
             -webkit-column-break-inside: avoid;
         }
         a { color: ${s.linkColor}; text-decoration: none; }
-        p { margin: 0 0 0.8em 0; }
+        p { margin: 0 0 ${s.paragraphSpacingEm}em 0; }
     """.trimIndent()
 
     /**
@@ -98,7 +103,7 @@ internal object ReaderAssets {
             function goTo(p) {
                 var c = pageCount();
                 p = Math.max(0, Math.min(c - 1, p));
-                window.scrollTo(p * step(), 0);
+                window.scrollTo({ left: p * step(), top: 0, behavior: window.__dogearSmooth ? 'smooth' : 'auto' });
                 report();
             }
             window.DogearPager = {
