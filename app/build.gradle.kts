@@ -65,6 +65,8 @@ dependencies {
     implementation(project(":format:pdf"))
     implementation(project(":format:comic"))
     implementation(project(":format:text"))
+    implementation(project(":format:fb2"))
+    implementation(project(":format:html"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
