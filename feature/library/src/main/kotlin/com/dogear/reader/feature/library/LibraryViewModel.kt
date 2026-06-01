@@ -115,8 +115,10 @@ class LibraryViewModel @Inject constructor(
 
     fun deleteBook(bookId: Long) = viewModelScope.launch { repository.deleteBook(bookId) }
 
-    fun seedSampleBooks(count: Int = 60) =
-        viewModelScope.launch { repository.seedSampleBooks(count) }
+    fun seedSampleBooks(count: Int = 24) = viewModelScope.launch {
+        val added = importer.seedSamples(count)
+        _importMessage.value = "Added $added sample books"
+    }
 
     fun importBook(uri: Uri) = viewModelScope.launch {
         _importMessage.value = describe(importer.importFromUri(uri))

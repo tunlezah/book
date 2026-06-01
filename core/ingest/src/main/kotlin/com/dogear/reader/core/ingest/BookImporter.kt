@@ -71,6 +71,26 @@ class BookImporter @Inject constructor(
         uris.fold(BatchImportResult()) { acc, uri -> acc + importFromUri(uri) }
     }
 
+    /**
+     * Seeds real, readable sample TXT books (with generated covers) so the shelf and reader can
+     * be exercised before importing real files. Each book has unique content so none dedupe.
+     */
+    suspend fun seedSamples(count: Int): Int = withContext(io) {
+        var added = 0
+        repeat(count) { i ->
+            val title = SampleData.title(i)
+            val author = SampleData.author(i)
+            val body = SampleData.body(title, author, i)
+            val result = importFromStream(body.byteInputStream(), "$title.txt")
+            if (result is ImportResult.Imported) {
+                // TXT carries no author; set a friendly one on the seeded book.
+                bookDao.getBook(result.bookId)?.let { bookDao.upsert(it.copy(author = author)) }
+                added++
+            }
+        }
+        added
+    }
+
     /** Recursively imports every supported book under a SAF tree (folder import). */
     suspend fun importTree(treeUri: Uri): BatchImportResult = withContext(io) {
         val root = DocumentFile.fromTreeUri(context, treeUri) ?: return@withContext BatchImportResult()
@@ -274,5 +294,50 @@ class BookImporter @Inject constructor(
         const val MAX_ARCHIVE_BOOKS = 2_000
         val BOOK_EXTENSIONS: Set<String> =
             BookFormat.entries.flatMap { it.extensions }.toSet()
+    }
+}
+
+/** Generates readable placeholder content for the seeded sample books. */
+private object SampleData {
+    private val titles = listOf(
+        "The Quiet Library", "A Distant Shore", "Pale Lanterns", "The Folded Page",
+        "Northern Tides", "Hollow Harbor", "Salt and Cedar", "The Long Field",
+        "Paper Atlas", "Ember Country", "The Glass Garden", "Marginalia",
+    )
+    private val firsts = listOf("Ada", "Marcus", "Lena", "Idris", "Nora", "Owen", "Priya", "Sam")
+    private val lasts = listOf("Vance", "Okafor", "Holt", "Maren", "Castellano", "Wu", "Bergström")
+
+    fun title(i: Int): String = "${titles[i % titles.size]} ${i + 1}"
+    fun author(i: Int): String = "${firsts[i % firsts.size]} ${lasts[(i / 3) % lasts.size]}"
+
+    fun body(title: String, author: String, i: Int): String = buildString {
+        appendLine(title)
+        appendLine("by $author")
+        appendLine()
+        repeat(6) { chapter ->
+            appendLine("Chapter ${chapter + 1}")
+            appendLine()
+            repeat(4) { p ->
+                appendLine(paragraph(i, chapter, p))
+                appendLine()
+            }
+        }
+    }
+
+    private val sentences = listOf(
+        "The harbor lights flickered as the tide pulled at the old stone pier.",
+        "She turned the page, and the lantern threw long shadows across the room.",
+        "No one had walked this road in years, yet the gate still swung open.",
+        "Rain gathered on the glass, and the garden seemed to hold its breath.",
+        "He folded the letter twice and slipped it between the pages of the atlas.",
+        "Somewhere beyond the field, a bell rang once and then fell silent.",
+        "The library was quiet in the way only old buildings can be quiet.",
+        "Salt clung to everything here — the railings, the windows, the words.",
+    )
+
+    private fun paragraph(book: Int, chapter: Int, p: Int): String {
+        // Deterministic but varied so each book's content (and hash) is unique.
+        val seed = (book * 31 + chapter * 7 + p)
+        return (0..3).joinToString(" ") { k -> sentences[(seed + k * 3) % sentences.size] }
     }
 }

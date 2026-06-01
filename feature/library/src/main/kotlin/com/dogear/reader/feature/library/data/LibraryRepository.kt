@@ -37,10 +37,4 @@ interface LibraryRepository {
     suspend fun markOpened(bookId: Long)
 
     suspend fun deleteBook(bookId: Long)
-
-    /**
-     * Seeds synthetic books so the shelf can be exercised before the import/format modules
-     * exist (debug + empty-state affordance, and the basis for performance seeding).
-     */
-    suspend fun seedSampleBooks(count: Int)
 }

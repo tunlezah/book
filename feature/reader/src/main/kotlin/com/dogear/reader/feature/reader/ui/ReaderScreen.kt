@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -115,12 +116,24 @@ fun ReaderScreen(
     ) {
         val current = content
         when {
-            state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            state.error != null -> Text(
-                text = state.error!!,
+            state.loading -> CircularProgressIndicator(
                 color = state.theme.text,
-                modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                modifier = Modifier.align(Alignment.Center),
             )
+            state.error != null -> Column(
+                modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = state.error!!,
+                    color = state.theme.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                )
+                Button(onClick = onBack, modifier = Modifier.padding(top = 20.dp)) {
+                    Text("Go back")
+                }
+            }
             current is BookContent.Reflowable -> ReflowReader(
                 content = current,
                 initialLocator = state.initialLocator,
@@ -148,6 +161,21 @@ fun ReaderScreen(
                     commands = commands,
                     renderPage = { index, target -> pager.page(index, target) },
                     onProgress = { viewModel.onProgress(it, null) },
+                )
+            }
+        }
+
+        // Always keep an escape hatch while loading or on error — the reader chrome and tap
+        // zones aren't available in those states, so without this the user would be stuck.
+        if (state.loading || state.error != null) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(4.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = state.theme.text,
                 )
             }
         }
