@@ -120,6 +120,7 @@ class SettingsRepository @Inject constructor(
             brightnessLevel = this[Keys.BRIGHTNESS_LEVEL] ?: defaults.brightnessLevel,
             keepAwake = enumOf(this[Keys.KEEP_AWAKE], defaults.keepAwake),
             orientation = enumOf(this[Keys.ORIENTATION], defaults.orientation),
+            volumeKeyPaging = this[Keys.VOLUME_PAGING] ?: defaults.volumeKeyPaging,
         )
     }
 
@@ -142,6 +143,7 @@ class SettingsRepository @Inject constructor(
         this[Keys.BRIGHTNESS_LEVEL] = s.brightnessLevel
         this[Keys.KEEP_AWAKE] = s.keepAwake.name
         this[Keys.ORIENTATION] = s.orientation.name
+        this[Keys.VOLUME_PAGING] = s.volumeKeyPaging
     }
 
     private inline fun <reified T : Enum<T>> enumOf(name: String?, default: T): T =
@@ -175,5 +177,6 @@ class SettingsRepository @Inject constructor(
         val BRIGHTNESS_LEVEL = floatPreferencesKey("reader_brightness_level")
         val KEEP_AWAKE = stringPreferencesKey("reader_keep_awake")
         val ORIENTATION = stringPreferencesKey("reader_orientation")
+        val VOLUME_PAGING = booleanPreferencesKey("reader_volume_paging")
     }
 }

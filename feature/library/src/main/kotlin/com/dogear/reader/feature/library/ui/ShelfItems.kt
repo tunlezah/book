@@ -17,11 +17,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dogear.reader.core.model.BookShelfItem
 import com.dogear.reader.core.model.ReadingState
 import com.dogear.reader.core.ui.component.BookCover
+
+private fun BookShelfItem.describe(): String =
+    "$title by $author, ${readingState.displayName}"
 
 @Composable
 fun BookGridItem(book: BookShelfItem, onClick: () -> Unit) {
@@ -29,6 +34,7 @@ fun BookGridItem(book: BookShelfItem, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) { contentDescription = book.describe() }
             .padding(2.dp),
     ) {
         BookCover(
@@ -62,6 +68,7 @@ fun BookListItem(book: BookShelfItem, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) { contentDescription = book.describe() }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

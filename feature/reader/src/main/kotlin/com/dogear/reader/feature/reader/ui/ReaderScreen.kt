@@ -44,7 +44,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,7 +96,23 @@ fun ReaderScreen(
 
     ReaderSystemUi(settings = state.settings)
 
-    Box(modifier = Modifier.fillMaxSize().background(state.theme.background)) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(state.loading) {
+        if (!state.loading) runCatching { focusRequester.requestFocus() }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(state.theme.background)
+            .focusRequester(focusRequester)
+            .focusable()
+            .onKeyEvent { event ->
+                handleReaderKey(event, state.settings.volumeKeyPaging) { command ->
+                    scope.launch { commands.emit(command) }
+                }
+            },
+    ) {
         val current = content
         when {
             state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -226,24 +253,49 @@ private fun TapZones(
     onToggleControls: () -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
-        TapZone(weight = 0.32f, onClick = onPrevious)
-        TapZone(weight = 0.36f, onClick = onToggleControls)
-        TapZone(weight = 0.32f, onClick = onNext)
+        TapZone(weight = 0.32f, label = "Previous page", onClick = onPrevious)
+        TapZone(weight = 0.36f, label = "Reading menu", onClick = onToggleControls)
+        TapZone(weight = 0.32f, label = "Next page", onClick = onNext)
     }
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.TapZone(weight: Float, onClick: () -> Unit) {
+private fun androidx.compose.foundation.layout.RowScope.TapZone(
+    weight: Float,
+    label: String,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .weight(weight)
             .fillMaxSize()
+            .semantics { contentDescription = label }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
             ),
     )
+}
+
+/** Hardware-keyboard and (optional) volume-key navigation. */
+private fun handleReaderKey(
+    event: KeyEvent,
+    volumePaging: Boolean,
+    emit: (ReaderCommand) -> Unit,
+): Boolean {
+    if (event.type != KeyEventType.KeyDown) return false
+    val command = when (event.key) {
+        Key.DirectionLeft, Key.PageUp -> ReaderCommand.Previous
+        Key.DirectionRight, Key.PageDown, Key.Spacebar -> ReaderCommand.Next
+        Key.MoveHome -> ReaderCommand.GoToProgression(0f)
+        Key.MoveEnd -> ReaderCommand.GoToProgression(1f)
+        Key.VolumeUp -> if (volumePaging) ReaderCommand.Previous else return false
+        Key.VolumeDown -> if (volumePaging) ReaderCommand.Next else return false
+        else -> return false
+    }
+    emit(command)
+    return true
 }
 
 @Composable

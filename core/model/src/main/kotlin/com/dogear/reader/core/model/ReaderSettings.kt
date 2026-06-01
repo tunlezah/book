@@ -62,6 +62,7 @@ data class ReaderSettings(
     val brightnessLevel: Float = 0.5f,
     val keepAwake: KeepAwakeMode = KeepAwakeMode.WHILE_READING,
     val orientation: OrientationLock = OrientationLock.AUTO,
+    val volumeKeyPaging: Boolean = false,
 ) {
     companion object {
         const val MIN_FONT_SP = 12

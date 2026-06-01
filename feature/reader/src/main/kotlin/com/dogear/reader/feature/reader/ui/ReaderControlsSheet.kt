@@ -168,6 +168,12 @@ internal fun ReaderControlsSheet(
                 label = { it.displayName },
                 onSelect = { lock -> onUpdate { it.copy(orientation = lock) } },
             )
+
+            ToggleRow(
+                label = "Volume keys turn pages",
+                checked = settings.volumeKeyPaging,
+                onChange = { on -> onUpdate { it.copy(volumeKeyPaging = on) } },
+            )
         }
     }
 }

@@ -257,7 +257,7 @@ private object BackupCodec {
             put("textAlign", reader.textAlign.name); put("hyphenation", reader.hyphenation)
             put("pageAnimation", reader.pageAnimation.name); put("brightnessMode", reader.brightnessMode.name)
             put("brightnessLevel", reader.brightnessLevel.toDouble()); put("keepAwake", reader.keepAwake.name)
-            put("orientation", reader.orientation.name)
+            put("orientation", reader.orientation.name); put("volumeKeyPaging", reader.volumeKeyPaging)
         }
     }
 
@@ -291,6 +291,7 @@ private object BackupCodec {
             brightnessLevel = o.optDouble("brightnessLevel", 0.5).toFloat(),
             keepAwake = e(o.optString("keepAwake"), com.dogear.reader.core.model.KeepAwakeMode.WHILE_READING),
             orientation = e(o.optString("orientation"), com.dogear.reader.core.model.OrientationLock.AUTO),
+            volumeKeyPaging = o.optBoolean("volumeKeyPaging", false),
         )
         repo.restore(app, reader)
     }
