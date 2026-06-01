@@ -33,8 +33,11 @@ dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
     implementation(project(":core:ui"))
+    implementation(project(":core:cover"))
+    implementation(project(":format:api"))
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 

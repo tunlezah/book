@@ -1,10 +1,13 @@
 package com.dogear.reader.feature.library
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.dogear.reader.core.datastore.SettingsRepository
+import com.dogear.reader.feature.library.data.BookImporter
+import com.dogear.reader.feature.library.data.ImportResult
 import com.dogear.reader.core.model.BookFormat
 import com.dogear.reader.core.model.BookShelfItem
 import com.dogear.reader.core.model.LibraryFilter
@@ -18,6 +21,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -30,10 +35,14 @@ import javax.inject.Inject
 class LibraryViewModel @Inject constructor(
     private val repository: LibraryRepository,
     private val settingsRepository: SettingsRepository,
+    private val importer: BookImporter,
 ) : ViewModel() {
 
     private val filter = MutableStateFlow(LibraryFilter.None)
     private val searchQuery = MutableStateFlow("")
+
+    private val _importMessage = MutableStateFlow<String?>(null)
+    val importMessage: StateFlow<String?> = _importMessage.asStateFlow()
 
     /** The composed query that drives paging — sort/order from settings, filters from local UI. */
     private val query: Flow<LibraryQuery> =
@@ -107,6 +116,19 @@ class LibraryViewModel @Inject constructor(
 
     fun seedSampleBooks(count: Int = 60) =
         viewModelScope.launch { repository.seedSampleBooks(count) }
+
+    fun importBook(uri: Uri) = viewModelScope.launch {
+        _importMessage.value = when (val result = importer.importFromUri(uri)) {
+            is ImportResult.Imported -> "Added to your library"
+            ImportResult.Duplicate -> "Already in your library"
+            ImportResult.Unsupported -> "Unsupported file type"
+            is ImportResult.Failed -> "Import failed: ${result.reason}"
+        }
+    }
+
+    fun consumeImportMessage() {
+        _importMessage.value = null
+    }
 
     private fun launchSettings(block: suspend () -> Unit) = viewModelScope.launch { block() }
 

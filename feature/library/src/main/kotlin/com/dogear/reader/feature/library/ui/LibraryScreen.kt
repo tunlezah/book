@@ -1,5 +1,7 @@
 package com.dogear.reader.feature.library.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
@@ -25,9 +28,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,13 +59,28 @@ fun LibraryScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val books = viewModel.pagedBooks.collectAsLazyPagingItems()
+    val importMessage by viewModel.importMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(viewModel::importBook) }
+
+    LaunchedEffect(importMessage) {
+        importMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.consumeImportMessage()
+        }
+    }
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             LibraryTopBar(
                 state = state,
                 onSearchChange = viewModel::setSearchQuery,
+                onImportClick = { importLauncher.launch(arrayOf("*/*")) },
                 onToggleView = {
                     val next = if (state.viewMode == ViewMode.GRID) ViewMode.LIST else ViewMode.GRID
                     viewModel.setViewMode(next)
@@ -89,6 +110,7 @@ fun LibraryScreen(
 private fun LibraryTopBar(
     state: LibraryUiState,
     onSearchChange: (String) -> Unit,
+    onImportClick: () -> Unit,
     onToggleView: () -> Unit,
     onSortSelected: (SortOption) -> Unit,
 ) {
@@ -115,6 +137,9 @@ private fun LibraryTopBar(
                     imageVector = if (searching) Icons.Filled.Clear else Icons.Filled.Search,
                     contentDescription = if (searching) "Close search" else "Search",
                 )
+            }
+            IconButton(onClick = onImportClick) {
+                Icon(Icons.Filled.Add, contentDescription = "Import book")
             }
             IconButton(onClick = onToggleView) {
                 val isGrid = state.viewMode == ViewMode.GRID

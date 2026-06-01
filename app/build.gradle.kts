@@ -52,7 +52,15 @@ dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
     implementation(project(":core:ui"))
+    implementation(project(":core:cover"))
     implementation(project(":feature:library"))
+
+    // Concrete format handlers — wired into the graph via Hilt multibinding.
+    implementation(project(":format:api"))
+    implementation(project(":format:epub"))
+    implementation(project(":format:pdf"))
+    implementation(project(":format:comic"))
+    implementation(project(":format:text"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

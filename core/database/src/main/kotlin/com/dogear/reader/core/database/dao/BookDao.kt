@@ -10,6 +10,7 @@ import androidx.room.Upsert
 import androidx.sqlite.db.SupportSQLiteQuery
 import com.dogear.reader.core.database.entity.BookCollectionCrossRef
 import com.dogear.reader.core.database.entity.BookEntity
+import com.dogear.reader.core.database.entity.BookFileEntity
 import com.dogear.reader.core.database.entity.BookTagCrossRef
 import com.dogear.reader.core.database.entity.ReadingProgressEntity
 import com.dogear.reader.core.database.model.ShelfRow
@@ -38,6 +39,9 @@ interface BookDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(books: List<BookEntity>): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertFile(file: BookFileEntity): Long
 
     @Upsert
     suspend fun upsert(book: BookEntity)

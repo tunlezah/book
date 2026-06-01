@@ -33,8 +33,20 @@ the wrapper automatically.
 :core:database       Room entities, DAOs, FTS, query builder, mappers, DI
 :core:datastore      Settings (Jetpack DataStore)
 :core:ui             Design system: theme, palettes, typography, components
-:feature:library     Shelf (grid/list, sort/filter/search), detail, repository
+:core:cover          Persistent cover/thumbnail cache + generated-cover fallback
+:feature:library     Shelf (grid/list, sort/filter/search), detail, repository, importer
+:format:api          BookFormatHandler + FormatRegistry + SafeZip/Magic
+:format:epub         EPUB 2/3 metadata + cover (OPF/OCF)
+:format:pdf          PDF cover via platform PdfRenderer
+:format:comic        CBZ cover (first image, natural order)
+:format:text         TXT (catch-all, content-sniffed)
 ```
+
+## Adding a book (Phase 2)
+The shelf top bar has an **Import (+)** action that opens the system file picker; the chosen
+file is copied into app storage, hashed, probed, and indexed (metadata + cover + thumbnail)
+entirely off the main thread. Duplicate files (same content hash) are skipped. Full
+folder/ZIP/web-upload import arrives in Phase 5.
 
 ## Notes for the current phase
 - **Fonts:** the bundled OFL/free TTFs are not yet added under `core:ui/src/main/res/font`
