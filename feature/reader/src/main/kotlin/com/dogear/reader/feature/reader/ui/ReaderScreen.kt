@@ -21,13 +21,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,6 +73,15 @@ fun ReaderScreen(
     val commands = remember { MutableSharedFlow<ReaderCommand>(extraBufferCapacity = 8) }
     var showToc by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showBookmarks by remember { mutableStateOf(false) }
+    var showHighlights by remember { mutableStateOf(false) }
+    var showNotes by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+
+    fun jumpTo(progression: Float) {
+        scope.launch { commands.emit(ReaderCommand.GoToProgression(progression)) }
+        viewModel.setControlsVisible(false)
+    }
 
     ReaderSystemUi(settings = state.settings)
 
@@ -87,12 +101,14 @@ fun ReaderScreen(
                 smoothPaging = state.settings.pageAnimation == com.dogear.reader.core.model.PageAnimation.SLIDE,
                 commands = commands,
                 onProgress = { viewModel.onProgress(it, null) },
+                onHighlight = { viewModel.saveHighlight(it) },
             )
             current is BookContent.FixedPage -> {
                 val fixed = current
                 PagedReader(
                     pageCount = state.totalPages,
                     initialLocator = state.initialLocator,
+                    commands = commands,
                     renderPage = { index, target -> fixed.renderPage(index, target) },
                     onProgress = { viewModel.onProgress(it, null) },
                 )
@@ -102,6 +118,7 @@ fun ReaderScreen(
                 PagedReader(
                     pageCount = state.totalPages,
                     initialLocator = state.initialLocator,
+                    commands = commands,
                     renderPage = { index, target -> pager.page(index, target) },
                     onProgress = { viewModel.onProgress(it, null) },
                 )
@@ -118,19 +135,61 @@ fun ReaderScreen(
 
         val openTocAction: (() -> Unit)? =
             if (state.toc.isNotEmpty()) ({ showToc = true }) else null
+        val isReflow = content is BookContent.Reflowable
         ReaderControls(
             visible = state.controlsVisible,
             title = state.title,
             chapter = state.chapter,
             progression = state.progression,
+            isReflow = isReflow,
             onBack = onBack,
+            onSeek = ::jumpTo,
+            onAddBookmark = { viewModel.addBookmark() },
+            onRequestHighlight = { scope.launch { commands.emit(ReaderCommand.RequestHighlight) } },
+            onOpenSearch = { showSearch = true },
             onOpenToc = openTocAction,
             onOpenSettings = { showSettings = true },
+            onOpenBookmarks = { showBookmarks = true },
+            onOpenHighlights = { showHighlights = true },
+            onOpenNotes = { showNotes = true },
         )
 
         if (state.showTutorial && !state.loading) {
             TutorialOverlay(onDismiss = viewModel::dismissTutorial)
         }
+    }
+
+    if (showBookmarks) {
+        BookmarksSheet(
+            bookmarks = viewModel.bookmarks.collectAsStateWithLifecycle().value,
+            onJump = { showBookmarks = false; jumpTo(it) },
+            onDelete = viewModel::deleteBookmark,
+            onDismiss = { showBookmarks = false },
+        )
+    }
+    if (showHighlights) {
+        HighlightsSheet(
+            highlights = viewModel.highlights.collectAsStateWithLifecycle().value,
+            onJump = { showHighlights = false; jumpTo(it) },
+            onDelete = viewModel::deleteHighlight,
+            onDismiss = { showHighlights = false },
+        )
+    }
+    if (showNotes) {
+        NotesSheet(
+            notes = viewModel.notes.collectAsStateWithLifecycle().value,
+            onAdd = viewModel::addNote,
+            onDelete = viewModel::deleteNote,
+            onExport = { viewModel.exportNotes() },
+            onDismiss = { showNotes = false },
+        )
+    }
+    if (showSearch) {
+        InBookSearchSheet(
+            onSearch = viewModel::searchInBook,
+            onJump = { showSearch = false; jumpTo(it) },
+            onDismiss = { showSearch = false },
+        )
     }
 
     if (showSettings) {
@@ -193,10 +252,19 @@ private fun ReaderControls(
     title: String,
     chapter: String,
     progression: Float,
+    isReflow: Boolean,
     onBack: () -> Unit,
+    onSeek: (Float) -> Unit,
+    onAddBookmark: () -> Unit,
+    onRequestHighlight: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenToc: (() -> Unit)?,
     onOpenSettings: () -> Unit,
+    onOpenBookmarks: () -> Unit,
+    onOpenHighlights: () -> Unit,
+    onOpenNotes: () -> Unit,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
@@ -206,7 +274,7 @@ private fun ReaderControls(
         ) {
             Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp),
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = onBack) {
@@ -217,14 +285,48 @@ private fun ReaderControls(
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
                     )
+                    IconButton(onClick = onAddBookmark) {
+                        Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Add bookmark")
+                    }
+                    if (isReflow) {
+                        IconButton(onClick = onOpenSearch) {
+                            Icon(Icons.Filled.Search, contentDescription = "Search in book")
+                        }
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.FormatSize, contentDescription = "Reading settings")
                     }
-                    if (onOpenToc != null) {
-                        IconButton(onClick = onOpenToc) {
-                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Table of contents")
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            if (onOpenToc != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Contents") },
+                                    onClick = { menuOpen = false; onOpenToc() },
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Bookmarks") },
+                                onClick = { menuOpen = false; onOpenBookmarks() },
+                            )
+                            if (isReflow) {
+                                DropdownMenuItem(
+                                    text = { Text("Highlight selection") },
+                                    onClick = { menuOpen = false; onRequestHighlight() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Highlights") },
+                                    onClick = { menuOpen = false; onOpenHighlights() },
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Notes") },
+                                onClick = { menuOpen = false; onOpenNotes() },
+                            )
                         }
                     }
                 }
@@ -239,11 +341,13 @@ private fun ReaderControls(
         ) {
             Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    LinearProgressIndicator(
-                        progress = { progression.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth(),
+                    // Drag to seek anywhere in the book (Architecture: bottom scrubber).
+                    Slider(
+                        value = progression.coerceIn(0f, 1f),
+                        onValueChange = onSeek,
                     )
                     Text(
                         text = buildString {
@@ -251,7 +355,6 @@ private fun ReaderControls(
                             if (chapter.isNotBlank()) append("  ·  $chapter")
                         },
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
             }

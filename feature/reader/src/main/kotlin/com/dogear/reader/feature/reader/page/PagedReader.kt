@@ -23,7 +23,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Image
 import com.dogear.reader.core.model.Locator
+import com.dogear.reader.feature.reader.ReaderCommand
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 
@@ -37,6 +39,7 @@ import kotlinx.coroutines.withContext
 internal fun PagedReader(
     pageCount: Int,
     initialLocator: Locator?,
+    commands: SharedFlow<ReaderCommand>,
     renderPage: suspend (index: Int, target: Size) -> Bitmap?,
     onProgress: (Locator) -> Unit,
     pagerState: PagerState = rememberPagerState(
@@ -52,6 +55,20 @@ internal fun PagedReader(
                 val progression = if (pageCount <= 1) 0f else page.toFloat() / (pageCount - 1)
                 onProgress(Locator(pageIndex = page, progression = progression))
             }
+    }
+
+    // Tap zones / bookmarks / scrubber drive the pager through commands.
+    LaunchedEffect(commands, pageCount) {
+        commands.collect { command ->
+            val target = when (command) {
+                ReaderCommand.Next -> pagerState.currentPage + 1
+                ReaderCommand.Previous -> pagerState.currentPage - 1
+                is ReaderCommand.GoToProgression ->
+                    (command.progression * (pageCount - 1).coerceAtLeast(0)).toInt()
+                else -> return@collect
+            }
+            pagerState.animateScrollToPage(target.coerceIn(0, (pageCount - 1).coerceAtLeast(0)))
+        }
     }
 
     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->

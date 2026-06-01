@@ -2,6 +2,7 @@ package com.dogear.reader.core.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.dogear.reader.core.database.dao.AnnotationDao
 import com.dogear.reader.core.database.dao.BookDao
 import com.dogear.reader.core.database.dao.OrganizationDao
 import com.dogear.reader.core.database.dao.ReadingProgressDao
@@ -45,6 +46,7 @@ abstract class DogearDatabase : RoomDatabase() {
     abstract fun bookDao(): BookDao
     abstract fun readingProgressDao(): ReadingProgressDao
     abstract fun organizationDao(): OrganizationDao
+    abstract fun annotationDao(): AnnotationDao
 
     companion object {
         const val NAME = "dogear.db"

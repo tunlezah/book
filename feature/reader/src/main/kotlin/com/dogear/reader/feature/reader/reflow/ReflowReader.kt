@@ -49,6 +49,7 @@ internal fun ReflowReader(
     smoothPaging: Boolean,
     commands: SharedFlow<ReaderCommand>,
     onProgress: (Locator) -> Unit,
+    onHighlight: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     var spineCount by remember { mutableIntStateOf(1) }
@@ -123,6 +124,17 @@ internal fun ReflowReader(
                     currentSpine = command.spineIndex
                     loadSpine(webView, content, currentSpine, command.fraction, style, smoothPaging, pendingFraction)
                 }
+                is ReaderCommand.GoToProgression -> {
+                    val target = (command.progression * spineCount).toInt().coerceIn(0, spineCount - 1)
+                    val fraction = (command.progression * spineCount - target).coerceIn(0f, 1f)
+                    currentSpine = target
+                    loadSpine(webView, content, currentSpine, fraction, style, smoothPaging, pendingFraction)
+                }
+                ReaderCommand.RequestHighlight -> {
+                    val raw = webView.evalString("(window.getSelection?window.getSelection().toString():'')")
+                    val text = raw.trim()
+                    if (text.isNotEmpty()) onHighlight(text)
+                }
             }
         }
     }
@@ -152,6 +164,19 @@ private suspend fun loadSpine(
 
 private suspend fun WebView.evalBoolean(js: String): Boolean = suspendCancellableCoroutine { cont ->
     evaluateJavascript(js) { result -> cont.resume(result == "true") }
+}
+
+private suspend fun WebView.evalString(js: String): String = suspendCancellableCoroutine { cont ->
+    evaluateJavascript(js) { result ->
+        // evaluateJavascript returns a JSON-encoded string, e.g. "\"hello\"".
+        val decoded = result
+            ?.removeSurrounding("\"")
+            ?.replace("\\n", "\n")
+            ?.replace("\\\"", "\"")
+            ?.replace("\\\\", "\\")
+            ?: ""
+        cont.resume(if (decoded == "null") "" else decoded)
+    }
 }
 
 private fun interceptResource(
