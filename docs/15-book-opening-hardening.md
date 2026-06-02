@@ -125,9 +125,17 @@ collapse.
 - Injected a real viewport meta `width=device-width, initial-scale=1, maximum-scale=1,
   user-scalable=no` and set WebView `useWideViewPort=true`, `loadWithOverviewMode=false`,
   zoom disabled, `textZoom=100`, so **1 CSS px == 1 device px** and the column math is exact.
-- Kept the drift-free geometry (horizontal reading margin on `body { margin }`, `column-gap:0`,
-  pitch = `clientWidth`) — deliberately *not* the padding-based variant, since horizontal padding
-  would re-enter `clientWidth` and reintroduce per-page drift.
+- Kept the drift-free geometry (horizontal reading margin on `body { margin }`, `column-gap:0`)
+  — deliberately *not* the padding-based variant, since horizontal padding would re-enter the
+  column pitch and reintroduce per-page drift.
+- **All pagination geometry is now written as inline `setProperty(..., 'important')`** (the way
+  foliate-js / epub.js do), because an inline `!important` beats *any* author stylesheet rule
+  regardless of selector specificity. **Body `width` and `column-width` are pinned to the same
+  value** (`viewportWidth − 2·gutter`), which guarantees exactly one column fits the content box —
+  fixing the "two columns abutting with no gap" artifact (a book whose own CSS set `column-*`/
+  `width` on `body` was producing 2 columns per screen, so each line read as the left column's
+  line-end glued to the right column's line-start, e.g. `hisor`, `wouldthe`). Page math is
+  deterministic: pitch = `viewportWidth − 2·gutter`, pages = `round(scrollWidth / pitch)`.
 - `-webkit-line-box-contain: block glyphs replaced` so glyphs aren't clipped at column edges
   (epub.js#983). Page math is `round(scrollWidth/clientWidth)` everywhere (never truncate).
 

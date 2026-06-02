@@ -53,7 +53,9 @@ internal object ReaderAssets {
     ): String {
         val css = css(style)
         val styleTag = "<style id=\"dogear-style\">$css</style>"
-        val boot = "window.__dogearSmooth=$smoothPaging;window.__dogearPending=$pendingFraction;"
+        val boot = "window.__dogearSmooth=$smoothPaging;" +
+            "window.__dogearPending=$pendingFraction;" +
+            "window.__dogearHMargin=${style.horizontalMarginPx};"
         val scriptTag = "<script id=\"dogear-pager\">$boot\n$PAGINATION_JS</script>"
         val headInjection = "$VIEWPORT_META$styleTag"
 
@@ -141,20 +143,37 @@ internal object ReaderAssets {
             var el = document.body;
             var ready = false;
 
+            function gutter() { return window.__dogearHMargin || 0; }
+            function viewportW() {
+                return Math.max(1, document.documentElement.clientWidth || window.innerWidth || 1);
+            }
             function viewportH() {
                 return Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
             }
-            function pitch() {
-                // Zero horizontal padding + column-gap:0 ⇒ the column pitch is clientWidth.
-                return Math.max(1, el.clientWidth);
-            }
+            // The single column is exactly the viewport minus the two reading gutters.
+            function pitch() { return Math.max(1, viewportW() - 2 * gutter()); }
             function applySize() {
-                // Explicit px HEIGHT is what makes column-fill:auto work (Chrome needs a definite
-                // block-size); setProperty(...,'important') beats the stylesheet fallbacks.
-                el.style.setProperty('height', viewportH() + 'px', 'important');
+                // ALL geometry is forced as inline !important so it beats any author stylesheet
+                // rule regardless of selector specificity (this is what foliate-js / epub.js do).
+                // Pinning width AND column-width to the SAME value guarantees exactly one column
+                // fits the content box — never the two-abutting-columns artifact. The explicit px
+                // height is what makes column-fill:auto fragment into page-height columns (Chrome
+                // only honors column-fill with a definite block-size).
                 var w = pitch() + 'px';
-                el.style.setProperty('column-width', w, 'important');
-                el.style.setProperty('-webkit-column-width', w, 'important');
+                var p = el.style;
+                p.setProperty('width', w, 'important');
+                p.setProperty('height', viewportH() + 'px', 'important');
+                p.setProperty('column-width', w, 'important');
+                p.setProperty('-webkit-column-width', w, 'important');
+                p.setProperty('column-count', 'auto', 'important');
+                p.setProperty('-webkit-column-count', 'auto', 'important');
+                p.setProperty('column-gap', '0px', 'important');
+                p.setProperty('-webkit-column-gap', '0px', 'important');
+                p.setProperty('column-fill', 'auto', 'important');
+                p.setProperty('-webkit-column-fill', 'auto', 'important');
+                p.setProperty('overflow', 'hidden', 'important');
+                p.setProperty('padding-left', '0px', 'important');
+                p.setProperty('padding-right', '0px', 'important');
             }
             function pageCount() {
                 return Math.max(1, Math.round(el.scrollWidth / pitch()));
