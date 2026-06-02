@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.webkit.WebViewAssetLoader
 import com.dogear.reader.core.model.Locator
 import com.dogear.reader.feature.reader.ReaderCommand
 import com.dogear.reader.format.api.content.BookContent
@@ -32,6 +33,9 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import kotlin.coroutines.resume
+
+/** Virtual origin for serving in-book resources via [WebViewAssetLoader]. */
+private const val ASSET_DOMAIN = "appassets.androidplatform.net"
 
 /**
  * EPUB/HTML/TXT reflow renderer. A single locked-down WebView paginates the current spine
@@ -60,6 +64,24 @@ internal fun ReflowReader(
     var initialized by remember { mutableStateOf(false) }
     val bridge = remember { PaginationBridge() }
 
+    // Serve the book's resources over a virtual https origin with the official asset loader.
+    // It returns a response only for our /book/ paths and null for everything else (including the
+    // inline main document), which is exactly what avoids the ERR_HTTP_RESPONSE_CODE_FAILURE trap.
+    val assetLoader = remember(content) {
+        WebViewAssetLoader.Builder()
+            .setDomain(ASSET_DOMAIN)
+            .addPathHandler("/book/") { path ->
+                val resource = runBlocking(Dispatchers.IO) { runCatching { content.resource(path) }.getOrNull() }
+                if (resource != null) {
+                    WebResourceResponse(resource.mimeType, null, ByteArrayInputStream(resource.bytes))
+                } else {
+                    // Known origin but missing entry: empty 200 so the page doesn't network-fault.
+                    WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                }
+            }
+            .build()
+    }
+
     val webView = remember {
         WebView(context).apply {
             configureForReading()
@@ -68,7 +90,7 @@ internal fun ReflowReader(
                 override fun shouldInterceptRequest(
                     view: WebView,
                     request: WebResourceRequest,
-                ): WebResourceResponse? = interceptResource(content, request)
+                ): WebResourceResponse? = interceptResource(assetLoader, request)
 
                 override fun onPageFinished(view: WebView, url: String?) {
                     // Restore the saved position once the document is laid out.
@@ -158,7 +180,8 @@ private suspend fun loadSpine(
     pendingFraction.floatValue = fraction
     val doc = withContext(Dispatchers.IO) { content.document(index) }
     val html = ReaderAssets.buildHtml(doc.html, style, smoothPaging)
-    val base = "https://dogear.local/book/" + if (doc.basePath.isEmpty()) "" else "${doc.basePath}/"
+    // Base URL points at the asset-loader origin so relative resource refs resolve to /book/<path>.
+    val base = "https://$ASSET_DOMAIN/book/" + if (doc.basePath.isEmpty()) "" else "${doc.basePath}/"
     webView.loadDataWithBaseURL(base, html, "text/html", "utf-8", null)
 }
 
@@ -180,24 +203,18 @@ private suspend fun WebView.evalString(js: String): String = suspendCancellableC
 }
 
 private fun interceptResource(
-    content: BookContent.Reflowable,
+    assetLoader: WebViewAssetLoader,
     request: WebResourceRequest,
-): WebResourceResponse {
-    val url = request.url
-    if (url.host == "dogear.local") {
-        val path = url.path?.removePrefix("/book/")?.let { android.net.Uri.decode(it) }
-        if (!path.isNullOrEmpty()) {
-            val resource = runBlocking(Dispatchers.IO) { content.resource(path) }
-            if (resource != null) {
-                return WebResourceResponse(resource.mimeType, null, ByteArrayInputStream(resource.bytes))
-            }
-        }
+): WebResourceResponse? {
+    // In-book resources are served by the asset loader (returns null for anything it doesn't own).
+    assetLoader.shouldInterceptRequest(request.url)?.let { return it }
+    // Block external network egress silently (empty 200 — never an error status, which would
+    // fault the frame). Inline (data:) main-document and other schemes pass through (null).
+    val scheme = request.url.scheme?.lowercase()
+    if (scheme == "http" || scheme == "https") {
+        return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
     }
-    // Deny everything else: no network egress, no file access.
-    return WebResourceResponse(
-        "text/plain", "utf-8", 403, "Blocked",
-        emptyMap(), ByteArrayInputStream(ByteArray(0)),
-    )
+    return null
 }
 
 private fun WebView.configureForReading() {
