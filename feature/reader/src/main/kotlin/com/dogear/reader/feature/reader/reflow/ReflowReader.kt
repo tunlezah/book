@@ -9,6 +9,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,11 +94,10 @@ internal fun ReflowReader(
                 ): WebResourceResponse? = interceptResource(assetLoader, request)
 
                 override fun onPageFinished(view: WebView, url: String?) {
-                    // Restore the saved position once the document is laid out.
-                    view.evaluateJavascript(
-                        "window.DogearPager && DogearPager.goToFraction(${pendingFraction.floatValue});",
-                        null,
-                    )
+                    // Position restore is handled inside the pager once fonts/images settle and the
+                    // layout is stable (see ReaderAssets) — restoring here would race the reflow and
+                    // land on a blank offset. We only nudge a recompute as a late safety net.
+                    view.evaluateJavascript("window.DogearPager && DogearPager.recompute();", null)
                 }
             }
         }
@@ -163,7 +163,7 @@ internal fun ReflowReader(
 
     AndroidView(
         factory = { webView },
-        modifier = Modifier,
+        modifier = Modifier.fillMaxSize(),
         onRelease = { it.destroyReader() },
     )
 }
@@ -179,7 +179,7 @@ private suspend fun loadSpine(
 ) {
     pendingFraction.floatValue = fraction
     val doc = withContext(Dispatchers.IO) { content.document(index) }
-    val html = ReaderAssets.buildHtml(doc.html, style, smoothPaging)
+    val html = ReaderAssets.buildHtml(doc.html, style, smoothPaging, fraction)
     // Base URL points at the asset-loader origin so relative resource refs resolve to /book/<path>.
     val base = "https://$ASSET_DOMAIN/book/" + if (doc.basePath.isEmpty()) "" else "${doc.basePath}/"
     webView.loadDataWithBaseURL(base, html, "text/html", "utf-8", null)

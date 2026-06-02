@@ -43,7 +43,9 @@ Kotlin toolkit migrated to** when it deleted its local HTTP server in 3.0
 | Charset: honor BOM/meta/XML decl, default UTF-8 ([calibre](https://manual.calibre-ebook.com/edit.html)) | ✅ applied (jsoup byte parse) |
 | Lenient HTML5 parse for undeclared entities/malformed markup ([calibre-web#1931](https://github.com/janeczku/calibre-web/issues/1931)) | ✅ applied (jsoup) |
 | CSP `default-src 'none'; connect-src 'none'` to stop egress at source | ⏳ planned |
-| Snap column width / offsets to integer CSS px; repaginate after `load`; debounce resize ([readium/css#97](https://github.com/readium/css/issues/97), [epub.js#1384](https://github.com/futurepress/epub.js/issues/1384)) | ⏳ planned |
+| Snap column width / offsets to integer CSS px; repaginate after `load`; debounce resize ([readium/css#97](https://github.com/readium/css/issues/97), [epub.js#1384](https://github.com/futurepress/epub.js/issues/1384)) | ✅ applied (JS sets exact-px `column-width`, settles after `fonts.ready`+stability poll, debounced resize re-anchor) |
+| Page by the real column pitch (`clientWidth`/`scrollLeft` of the columned box), **not** `window.innerWidth`/`scrollTo`; the `overflow:hidden` body is the scroller, the window is not ([epub.js delta = width+gap−padding](http://epubjs.org/documentation/0.3/)) | ✅ applied |
+| Give the WebView a definite size (`fillMaxSize`) so `100%`/`100vh` resolve to a real viewport (else columns collapse → blank page) | ✅ applied |
 | Font de-obfuscation (IDPF 1040-byte / Adobe 1024-byte XOR keyed on OPF id) ([epubsecrets](https://epubsecrets.com/font-embedding-and-font-obfuscationmangling.php)) | ⏳ planned |
 | Fixed-layout EPUB3 separate code path (viewport meta, `page-spread-*`, RTL) ([IDPF FXL](https://idpf.org/epub/fxl/)) | ⏳ planned |
 | Resolve all `srcset`/`<picture>` candidates; block `javascript:`; MathJax for MathML | ⏳ planned |
@@ -76,9 +78,34 @@ Kotlin toolkit migrated to** when it deleted its local HTTP server in 3.0
 
 ---
 
+## 3b. The second bug: EPUB rendered once, then blank & un-pageable
+
+Symptom on device: the book showed text once, then on reopen the page area was blank and page
+turns did nothing (exit still worked). Three compounding causes, all fixed:
+
+1. **WebView had no size.** `AndroidView(modifier = Modifier)` left the WebView unconstrained, so
+   CSS `100%`/`100vh` resolved against a wrong/zero viewport and the column box collapsed. → now
+   `Modifier.fillMaxSize()`.
+2. **Wrong scroll lever.** The columned `body` is `overflow:hidden`, so *it* is the scroll
+   container — but the pager drove `window.scrollTo`/`window.scrollX`, which are no-ops on an
+   overflow-hidden body. Page turns therefore never moved. → now scroll/measure via
+   `body.scrollLeft` / `body.scrollWidth` / `body.clientWidth`.
+3. **Wrong pitch + premature measurement.** Paging stepped by `window.innerWidth` (which includes
+   the reading padding) instead of the true column pitch, and position was restored in
+   `onPageFinished` before web fonts/images reflowed the text — landing on a blank offset. → the
+   horizontal reading margin moved to `margin` (zero horizontal padding ⇒ pitch === `clientWidth`),
+   `column-gap:0`, exact-px `column-width` set in JS, and measurement deferred until
+   `window.load` + `document.fonts.ready` + a `requestAnimationFrame` stability poll; only then is
+   the saved position restored. Pagination geometry is forced with `!important` so author CSS can't
+   break it.
+
 ## 4. What changed in this pass (code)
 
-- **`ReflowReader`**: `WebViewAssetLoader` serving + empty-200 egress block (the root-cause fix).
+- **`ReflowReader`**: `WebViewAssetLoader` serving + empty-200 egress block (the root-cause fix);
+  `fillMaxSize` WebView; position restore moved out of `onPageFinished` into the pager.
+- **`ReaderAssets`**: rewritten pager — body-as-scroller geometry (`scrollLeft`/`clientWidth`),
+  exact-px column width, settle-after-fonts/images + stability poll, debounced resize re-anchor,
+  `!important` pagination geometry.
 - **`HtmlSanitizer`** (EPUB) and **`HtmlContent`** (HTML): parse from **bytes** with jsoup's
   charset auto-detection and lenient HTML5 parser.
 - **`EpubContent`**: zip **entry index** for forgiving resource resolution (decoded / case-
