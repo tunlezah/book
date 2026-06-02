@@ -226,8 +226,16 @@ private fun WebView.configureForReading() {
         allowFileAccessFromFileURLs = false
         @Suppress("DEPRECATION")
         allowUniversalAccessFromFileURLs = false
+        // Honor our injected width=device-width viewport meta so 1 CSS px == 1 device px (the
+        // pagination math depends on this); never zoom-to-fit or allow user zoom (pinch-zoom would
+        // desync the column geometry). Pin textZoom so the OS font-size setting can't rescale text
+        // underneath our own font-size control. (Readium / epub.js use the same combination.)
+        useWideViewPort = true
+        loadWithOverviewMode = false
         builtInZoomControls = false
+        displayZoomControls = false
         setSupportZoom(false)
+        textZoom = 100
         cacheMode = WebSettings.LOAD_NO_CACHE
         mediaPlaybackRequiresUserGesture = true
     }

@@ -19,20 +19,28 @@ data class ReflowStyle(
 /**
  * Builds the page CSS + pagination JS and injects them into a sanitized spine document.
  *
- * Pagination technique (CSS multi-column, as used by epub.js / Readium):
- *  - The **body** is the paginated *and* scrolled element. It carries the horizontal reading
- *    margin as `margin` (not padding) and **zero horizontal padding**, so its content box width
- *    equals the column pitch exactly — no `innerWidth`-vs-padding drift.
- *  - `column-gap: 0` and `column-width` is set in JS to the body's exact integer `clientWidth`,
- *    guaranteeing exactly one column per page and `pitch === clientWidth`.
- *  - We page by setting `body.scrollLeft` (the body is the `overflow:hidden` scroll container —
- *    `window.scrollTo` would be a no-op here), and `pageCount = round(scrollWidth / clientWidth)`.
- *  - Measurement happens only **after** `window.load` *and* `document.fonts.ready`, then a short
- *    stability poll, because web fonts and late images reflow the text and change `scrollWidth`.
- *    Only once the layout is stable do we restore the saved position — this is what fixes the
- *    "text flashes once then blank, can't page" symptom.
+ * Pagination technique (CSS multi-column, matching epub.js `src/contents.js` and foliate-js
+ * `paginator.js`):
+ *  - The **body** is both the multi-column box *and* the horizontal scroll container.
+ *  - **The column box is given an explicit pixel height from `window.innerHeight` in JS**, NOT
+ *    `height:100%`/`100vh`. This is the crux: Chrome/WebKit only honor `column-fill:auto` when the
+ *    container has a *definite* block-size; a percentage/vh height does not resolve to a definite
+ *    height inside a WebView, so the engine balances into a single column and the text collapses to
+ *    one line that overflows sideways. Forcing pixels fixes that.
+ *    (MDN column-fill; CSSWG#4689; epub.js/foliate-js both set `style.height = <px>`.)
+ *  - Horizontal reading margin lives in `margin` (not padding) and `column-gap` is 0, so the column
+ *    pitch == `body.clientWidth` exactly — no `innerWidth`/padding drift. We page by `body.scrollLeft`
+ *    (the window does not scroll when body is `overflow:hidden`).
+ *  - Measurement is deferred until `window.load` + `document.fonts.ready` + a `requestAnimationFrame`
+ *    stability poll (fonts/images reflow text and change `scrollWidth`); only then is the saved
+ *    position restored. Re-pagination is driven by a `ResizeObserver` for rotation/size changes.
  */
 internal object ReaderAssets {
+
+    /** width=device-width + scale 1 so CSS px == device px (needs `useWideViewPort=true`). */
+    private const val VIEWPORT_META =
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, " +
+            "maximum-scale=1.0, user-scalable=no, viewport-fit=cover\">"
 
     /**
      * @param pendingFraction position (0..1 within this document) to restore once layout is stable.
@@ -47,12 +55,13 @@ internal object ReaderAssets {
         val styleTag = "<style id=\"dogear-style\">$css</style>"
         val boot = "window.__dogearSmooth=$smoothPaging;window.__dogearPending=$pendingFraction;"
         val scriptTag = "<script id=\"dogear-pager\">$boot\n$PAGINATION_JS</script>"
+        val headInjection = "$VIEWPORT_META$styleTag"
 
         var html = bodyHtml
         html = if (html.contains("</head>", ignoreCase = true)) {
-            html.replaceFirst(Regex("(?i)</head>"), "$styleTag</head>")
+            html.replaceFirst(Regex("(?i)</head>"), "$headInjection</head>")
         } else {
-            "$styleTag$html"
+            "$headInjection$html"
         }
         html = if (html.contains("</body>", ignoreCase = true)) {
             html.replaceFirst(Regex("(?i)</body>"), "$scriptTag</body>")
@@ -64,7 +73,6 @@ internal object ReaderAssets {
 
     private fun css(s: ReflowStyle): String = """
         html {
-            height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             -webkit-text-size-adjust: 100%;
@@ -72,15 +80,14 @@ internal object ReaderAssets {
         }
         body {
             box-sizing: border-box !important;
-            height: 100% !important;
-            min-height: 100% !important;
-            max-height: 100% !important;
-            /* Horizontal reading margin lives in `margin` so it does NOT enter the column pitch;
-               vertical margin is padding (it doesn't affect horizontal geometry). The geometry
-               is forced with !important so author stylesheets can't break pagination. */
+            /* width/height are overwritten in JS with explicit px; these are only fallbacks.
+               Horizontal reading margin is `margin` so it stays OUT of the column pitch; vertical
+               margin is padding (does not affect horizontal geometry). Geometry is forced with
+               !important so author stylesheets cannot break pagination. */
+            width: auto !important;
+            height: 100vh;
             margin: 0 ${s.horizontalMarginPx}px !important;
             padding: ${s.verticalMarginPx}px 0 !important;
-            /* column-width is overwritten in JS with the exact clientWidth; this is a fallback. */
             column-width: 100% !important;
             -webkit-column-width: 100% !important;
             column-count: auto !important;
@@ -90,6 +97,8 @@ internal object ReaderAssets {
             column-fill: auto !important;
             -webkit-column-fill: auto !important;
             overflow: hidden !important;
+            /* Stop glyph ascenders/descenders being clipped at column edges (epub.js #983). */
+            -webkit-line-box-contain: block glyphs replaced;
             font-family: ${s.fontFamilyCss};
             font-size: ${s.fontSizePx}px;
             font-weight: ${s.fontWeight};
@@ -123,21 +132,26 @@ internal object ReaderAssets {
 
     /**
      * Page measurement and navigation. The body is both the multi-column box and the horizontal
-     * scroll container. All geometry is derived from the body's own `clientWidth`/`scrollWidth`
-     * and `scrollLeft` — never `window.*` (the window doesn't scroll when body is overflow:hidden).
+     * scroll container. Geometry is derived from the body's own `clientWidth`/`scrollWidth`/
+     * `scrollLeft`; the body height is forced to `window.innerHeight` in px so `column-fill:auto`
+     * fragments the text into page-height columns instead of collapsing to one line.
      */
     private val PAGINATION_JS = """
         (function () {
             var el = document.body;
             var ready = false;
 
+            function viewportH() {
+                return Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
+            }
             function pitch() {
-                // With zero horizontal padding and column-gap:0, the column pitch is clientWidth.
+                // Zero horizontal padding + column-gap:0 ⇒ the column pitch is clientWidth.
                 return Math.max(1, el.clientWidth);
             }
-            function applyColumnWidth() {
-                // setProperty(..., 'important') so the exact integer pitch beats the
-                // `column-width: 100% !important` fallback in the injected stylesheet.
+            function applySize() {
+                // Explicit px HEIGHT is what makes column-fill:auto work (Chrome needs a definite
+                // block-size); setProperty(...,'important') beats the stylesheet fallbacks.
+                el.style.setProperty('height', viewportH() + 'px', 'important');
                 var w = pitch() + 'px';
                 el.style.setProperty('column-width', w, 'important');
                 el.style.setProperty('-webkit-column-width', w, 'important');
@@ -183,29 +197,26 @@ internal object ReaderAssets {
                     var c = pageCount();
                     goTo(Math.round((f || 0) * (c - 1)));
                 },
-                recompute: function () { applyColumnWidth(); report(); }
+                recompute: function () { applySize(); report(); }
             };
 
             // Re-measure when late images finish (they shift text and change scrollWidth).
-            function watchImages(after) {
+            function watchImages() {
                 var imgs = el.querySelectorAll('img');
-                var pending = 0;
                 for (var i = 0; i < imgs.length; i++) {
                     var img = imgs[i];
                     if (!img.complete) {
-                        pending++;
-                        img.addEventListener('load', after, { once: true });
-                        img.addEventListener('error', after, { once: true });
+                        img.addEventListener('load', DogearPager.recompute, { once: true });
+                        img.addEventListener('error', DogearPager.recompute, { once: true });
                     }
                 }
-                return pending;
             }
 
             // Poll until scrollWidth stops changing (fonts/images settling), then settle once.
             function whenStable(done) {
                 var last = -1, tries = 0;
                 function tick() {
-                    applyColumnWidth();
+                    applySize();
                     var w = el.scrollWidth;
                     if (w === last || tries > 20) { done(); return; }
                     last = w;
@@ -216,7 +227,7 @@ internal object ReaderAssets {
             }
 
             function settle() {
-                applyColumnWidth();
+                applySize();
                 whenStable(function () {
                     ready = true;
                     DogearPager.goToFraction(window.__dogearPending || 0);
@@ -229,7 +240,7 @@ internal object ReaderAssets {
                 var fonts = (document.fonts && document.fonts.ready)
                     ? document.fonts.ready : Promise.resolve();
                 fonts.then(function () {
-                    watchImages(function () { if (ready) DogearPager.recompute(); });
+                    watchImages();
                     settle();
                 });
             }
@@ -237,19 +248,23 @@ internal object ReaderAssets {
             if (document.readyState === 'complete') { start(); }
             else { window.addEventListener('load', start); }
 
-            // Rotation / size change: re-apply column width and re-anchor to the same fraction.
+            // Rotation / size change: re-apply size and re-anchor to the same fraction.
             var rt = null;
-            window.addEventListener('resize', function () {
+            function onResize() {
                 if (!ready) return;
                 var c = pageCount();
                 var f = c <= 1 ? 0 : currentPage() / (c - 1);
                 if (rt) clearTimeout(rt);
                 rt = setTimeout(function () {
-                    applyColumnWidth();
+                    applySize();
                     DogearPager.goToFraction(f);
                     report();
                 }, 120);
-            });
+            }
+            if (window.ResizeObserver) {
+                try { new ResizeObserver(onResize).observe(document.documentElement); } catch (e) {}
+            }
+            window.addEventListener('resize', onResize);
         })();
     """.trimIndent()
 }

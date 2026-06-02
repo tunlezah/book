@@ -99,6 +99,48 @@ turns did nothing (exit still worked). Three compounding causes, all fixed:
    the saved position restored. Pagination geometry is forced with `!important` so author CSS can't
    break it.
 
+## 3c. The third bug: column collapsed to one line (text overflowed sideways)
+
+Symptom on device: after the scroller fix, text rendered but only the **first line** showed at the
+top with the rest of the page blank and content cut off at both horizontal edges — i.e. the
+multi-column box was **one line tall** and the text flowed sideways.
+
+Root cause (corroborated by three independent source dives — epub.js `src/contents.js`, foliate-js
+`paginator.js`, and Readium `readium-css` + `kotlin-toolkit`): **`column-fill: auto` is only
+honored when the multi-column container has a *definite* block-size (height).** Our `height: 100%`
+on `body` is a *percentage* with no definite-height parent chain inside the WebView, so it didn't
+resolve to a definite height → Chrome/Blink reverted to balancing → a single column → one-line
+collapse.
+([MDN column-fill](https://developer.mozilla.org/en-US/docs/Web/CSS/column-fill),
+[CSSWG#4689](https://github.com/w3c/csswg-drafts/issues/4689),
+[Readium pagination CSS](https://github.com/readium/readium-css/blob/master/docs/CSS03-injection_and_pagination.md),
+[Readium SDKLauncher#63](https://github.com/readium/SDKLauncher-Android/issues/63))
+
+**Fixes applied:**
+- The pager now sets the column box's **height to an explicit pixel value from `window.innerHeight`**
+  (via `style.setProperty('height', …, 'important')`), the way epub.js (`this.height(px)`) and
+  foliate-js (`style.height = ${'$'}{h}px`) both do — never `height:100%`/`100vh`. Re-applied on a
+  `ResizeObserver`(documentElement) + `resize` for rotation. (Readium reaches the same result by
+  putting `height:100vh` on `:root` rather than a percentage on `body`.)
+- Injected a real viewport meta `width=device-width, initial-scale=1, maximum-scale=1,
+  user-scalable=no` and set WebView `useWideViewPort=true`, `loadWithOverviewMode=false`,
+  zoom disabled, `textZoom=100`, so **1 CSS px == 1 device px** and the column math is exact.
+- Kept the drift-free geometry (horizontal reading margin on `body { margin }`, `column-gap:0`,
+  pitch = `clientWidth`) — deliberately *not* the padding-based variant, since horizontal padding
+  would re-enter `clientWidth` and reintroduce per-page drift.
+- `-webkit-line-box-contain: block glyphs replaced` so glyphs aren't clipped at column edges
+  (epub.js#983). Page math is `round(scrollWidth/clientWidth)` everywhere (never truncate).
+
+### Whitespace bug ("itwould"): XML parse for XHTML
+
+jsoup's **HTML** tree-builder discards whitespace-only text nodes *at parse time*, merging words
+across inline-tag boundaries — `prettyPrint(false)` can't recover it
+([jsoup#1081](https://github.com/jhy/jsoup/issues/1081)). EPUB content is XHTML, so `HtmlSanitizer`
+now parses with `Parser.xmlParser()` (preserves the whitespace) **only** when the document declares
+itself XML/XHTML *and* uses no named HTML entities outside XML's five; otherwise it falls back to the
+lenient HTML parser (entity-heavy or loose-HTML books are unchanged, so the stricter parser can't
+regress them).
+
 ## 4. What changed in this pass (code)
 
 - **`ReflowReader`**: `WebViewAssetLoader` serving + empty-200 egress block (the root-cause fix);
