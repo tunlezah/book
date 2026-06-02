@@ -71,11 +71,15 @@ internal object ReaderAssets {
         }
         img, svg, video {
             max-width: 100% !important;
-            max-height: 92vh !important;
+            max-height: 96vh !important;
             height: auto;
+            object-fit: contain;
+            box-sizing: border-box;
             break-inside: avoid;
             -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
         }
+        figure { margin: 0; }
         table, pre, figure, blockquote, h1, h2, h3 {
             break-inside: avoid;
             -webkit-column-break-inside: avoid;

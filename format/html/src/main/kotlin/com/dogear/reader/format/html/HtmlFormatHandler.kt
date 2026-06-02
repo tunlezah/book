@@ -12,6 +12,7 @@ import com.dogear.reader.format.api.content.Resource
 import com.dogear.reader.format.api.content.SpineItem
 import com.dogear.reader.format.api.content.TocEntry
 import org.jsoup.Jsoup
+import java.io.ByteArrayInputStream
 import javax.inject.Inject
 
 /** Single-file HTML/HTM handler. Reflowed like EPUB after stripping active content. */
@@ -38,20 +39,20 @@ class HtmlFormatHandler @Inject constructor() : BookFormatHandler {
     }
 
     override suspend fun extractMetadata(ref: FileRef): BookMetadata = runCatching {
-        val title = Jsoup.parse(readText(ref)).title().takeIf { it.isNotBlank() }
+        val title = Jsoup.parse(ByteArrayInputStream(readBytes(ref)), null, "").title()
+            .takeIf { it.isNotBlank() }
         BookMetadata(title = title)
     }.getOrDefault(BookMetadata.Empty)
 
     override suspend fun extractCover(ref: FileRef): RawImage? = null
 
-    override suspend fun openContent(ref: FileRef): BookContent = HtmlContent(readText(ref))
+    override suspend fun openContent(ref: FileRef): BookContent = HtmlContent(readBytes(ref))
 
-    private fun readText(ref: FileRef): String =
-        ref.openInputStream().use { it.readBytes().toString(Charsets.UTF_8) }
+    private fun readBytes(ref: FileRef): ByteArray = ref.openInputStream().use { it.readBytes() }
 }
 
-/** Reflowable single HTML document with author scripts removed (Security Review §A). */
-internal class HtmlContent(private val rawHtml: String) : BookContent.Reflowable {
+/** Reflowable single HTML document, charset auto-detected, with author scripts removed. */
+internal class HtmlContent(private val bytes: ByteArray) : BookContent.Reflowable {
 
     override suspend fun spine(): List<SpineItem> = listOf(SpineItem(0, "html", "text/html"))
 
@@ -60,7 +61,7 @@ internal class HtmlContent(private val rawHtml: String) : BookContent.Reflowable
     override suspend fun resource(path: String): Resource? = null
 
     override suspend fun document(spineIndex: Int): ReflowDocument {
-        val doc = runCatching { Jsoup.parse(rawHtml) }.getOrNull()
+        val doc = runCatching { Jsoup.parse(ByteArrayInputStream(bytes), null, "") }.getOrNull()
         val sanitized = if (doc != null) {
             doc.select("script, iframe, object, embed").remove()
             doc.allElements.forEach { el ->

@@ -7,6 +7,7 @@ import com.dogear.reader.format.api.FileRef
 import com.dogear.reader.format.api.ProbeResult
 import com.dogear.reader.format.api.RawImage
 import com.dogear.reader.format.api.content.BookContent
+import com.dogear.reader.format.api.content.DrmProtectedException
 import com.dogear.reader.format.api.io.SafeZip
 import com.dogear.reader.format.api.materialize
 import java.io.File
@@ -38,7 +39,21 @@ class EpubFormatHandler @Inject constructor() : BookFormatHandler {
         return opf.metadata
     }
 
-    override suspend fun openContent(ref: FileRef): BookContent = EpubContent(ref.materialize())
+    override suspend fun openContent(ref: FileRef): BookContent {
+        val file = ref.materialize()
+        if (isDrmProtected(file)) throw DrmProtectedException()
+        return EpubContent(file)
+    }
+
+    /**
+     * Distinguishes content DRM (AES / Adobe ADEPT — surface a clear message, never bypass) from
+     * mere font obfuscation (IDPF/Adobe XOR, not DRM). Hardening research §4.
+     */
+    private fun isDrmProtected(file: File): Boolean {
+        val enc = SafeZip.readEntry(file, ENCRYPTION_PATH)?.toString(Charsets.UTF_8)?.lowercase()
+            ?: return false
+        return enc.contains("aes") || enc.contains("ns.adobe.com/adept")
+    }
 
     override suspend fun extractCover(ref: FileRef): RawImage? {
         val file = ref.materialize()
@@ -57,8 +72,12 @@ class EpubFormatHandler @Inject constructor() : BookFormatHandler {
     }
 
     private fun opfPath(file: File): String? {
-        val container = SafeZip.readEntry(file, CONTAINER_PATH) ?: return null
-        return OpfParser.parseContainer(container)
+        SafeZip.readEntry(file, CONTAINER_PATH)
+            ?.let { OpfParser.parseContainer(it) }
+            ?.let { return it }
+        // Fallback: a misauthored book with no/!broken container — find any OPF.
+        return runCatching { SafeZip.entryNames(file) }.getOrDefault(emptyList())
+            .firstOrNull { it.endsWith(".opf", ignoreCase = true) }
     }
 
     /** EPUB3 if any OPF declares version 3; cheap heuristic without full parse. */
@@ -76,6 +95,7 @@ class EpubFormatHandler @Inject constructor() : BookFormatHandler {
     private companion object {
         const val EPUB_MIME = "application/epub+zip"
         const val CONTAINER_PATH = "META-INF/container.xml"
+        const val ENCRYPTION_PATH = "META-INF/encryption.xml"
     }
 }
 

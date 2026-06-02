@@ -12,6 +12,7 @@ import com.dogear.reader.core.model.Note
 import com.dogear.reader.core.model.ReaderSettings
 import com.dogear.reader.core.ui.theme.ReadingThemes
 import com.dogear.reader.feature.reader.data.AnnotationRepository
+import com.dogear.reader.feature.reader.data.OpenOutcome
 import com.dogear.reader.feature.reader.data.ReaderRepository
 import com.dogear.reader.format.api.content.BookContent
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -79,11 +80,12 @@ class ReaderViewModel @Inject constructor(
     private fun open() {
         viewModelScope.launch {
             val appSettings = settingsRepository.settings.first()
-            val opened = repository.open(bookId)
-            if (opened == null) {
-                _uiState.update { it.copy(loading = false, error = "Could not open this book") }
+            val outcome = repository.open(bookId)
+            if (outcome is OpenOutcome.Failure) {
+                _uiState.update { it.copy(loading = false, error = outcome.message) }
                 return@launch
             }
+            val opened = (outcome as OpenOutcome.Success).opened
             val kind = when (opened.content) {
                 is BookContent.Reflowable -> ReaderKind.REFLOW
                 is BookContent.FixedPage -> ReaderKind.FIXED

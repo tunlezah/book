@@ -1,5 +1,6 @@
 package com.dogear.reader.format.epub
 
+import android.net.Uri
 import com.dogear.reader.format.api.content.BookContent
 import com.dogear.reader.format.api.content.ReflowDocument
 import com.dogear.reader.format.api.content.Resource
@@ -11,19 +12,35 @@ import java.io.File
 
 /**
  * Reflowable EPUB content. Reads spine documents and resources lazily through [SafeZip] (one at
- * a time — never the whole book), sanitizes each document, and exposes a TOC from the EPUB3 nav
- * doc or the EPUB2 NCX. Resource paths are book-root-relative so the reader's asset loader can
- * serve them directly.
+ * a time — never the whole book), sanitizes/charset-decodes each document, and exposes a TOC from
+ * the EPUB3 nav doc or the EPUB2 NCX.
+ *
+ * Resource resolution is deliberately forgiving (Hardening research §9): EPUB hrefs are matched
+ * against zip entries by exact name, then percent-decoded, backslash-normalized, and
+ * case-insensitive — so books authored with `%20`, `Image.JPG` vs `image.jpg`, or `\` separators
+ * still load their images/CSS/fonts instead of rendering broken.
  */
 internal class EpubContent(private val file: File) : BookContent.Reflowable {
 
+    private val entryNames: List<String> by lazy {
+        runCatching { SafeZip.entryNames(file) }.getOrDefault(emptyList())
+    }
+
+    /** normalized key (decoded, lowercased, forward slashes) → actual zip entry name. */
+    private val entryIndex: Map<String, String> by lazy {
+        entryNames.associateBy { normalizeKey(it) }
+    }
+
+    /** OPF path: container.xml → first rootfile, else the first `*.opf` anywhere in the zip. */
     private val opfPath: String? by lazy {
-        SafeZip.readEntry(file, "META-INF/container.xml")?.let { OpfParser.parseContainer(it) }
+        val fromContainer = readEntry("META-INF/container.xml")
+            ?.let { OpfParser.parseContainer(it) }
+        fromContainer ?: entryNames.firstOrNull { it.endsWith(".opf", ignoreCase = true) }
     }
 
     private val pkg: OpfParser.Package by lazy {
         val path = opfPath ?: return@lazy OpfParser.Package(emptyMap(), emptyList(), null, null)
-        SafeZip.readEntry(file, path)?.let { OpfParser.parsePackage(it) }
+        readEntry(path)?.let { OpfParser.parsePackage(it) }
             ?: OpfParser.Package(emptyMap(), emptyList(), null, null)
     }
 
@@ -39,16 +56,15 @@ internal class EpubContent(private val file: File) : BookContent.Reflowable {
     override suspend fun spine(): List<SpineItem> = spineItems
 
     override suspend fun document(spineIndex: Int): ReflowDocument {
-        val item = spineItems.getOrNull(spineIndex)
-            ?: return ReflowDocument(EMPTY_DOC, "")
-        val bytes = SafeZip.readEntry(file, item.href) ?: return ReflowDocument(EMPTY_DOC, "")
-        val html = HtmlSanitizer.sanitize(bytes.toString(Charsets.UTF_8))
+        val item = spineItems.getOrNull(spineIndex) ?: return ReflowDocument(EMPTY_DOC, "")
+        val bytes = readEntry(item.href) ?: return ReflowDocument(EMPTY_DOC, "")
+        val html = HtmlSanitizer.sanitize(bytes) // charset auto-detected, lenient parse
         val basePath = item.href.substringBeforeLast('/', "")
         return ReflowDocument(html, basePath)
     }
 
     override suspend fun resource(path: String): Resource? {
-        val bytes = SafeZip.readEntry(file, path) ?: return null
+        val bytes = readEntry(path) ?: return null
         return Resource(bytes, resourceMime(path))
     }
 
@@ -56,20 +72,32 @@ internal class EpubContent(private val file: File) : BookContent.Reflowable {
         val base = opfPath ?: return emptyList()
         pkg.navHref?.let { nav ->
             val navRoot = resolveRelative(base, nav)
-            SafeZip.readEntry(file, navRoot)?.let { bytes ->
-                return parseNav(bytes.toString(Charsets.UTF_8), navRoot)
-            }
+            readEntry(navRoot)?.let { return parseNav(it.toString(Charsets.UTF_8), navRoot) }
         }
         pkg.ncxHref?.let { ncx ->
             val ncxRoot = resolveRelative(base, ncx)
-            SafeZip.readEntry(file, ncxRoot)?.let { bytes ->
-                return NcxParser.parse(bytes, ncxRoot)
-            }
+            readEntry(ncxRoot)?.let { return NcxParser.parse(it, ncxRoot) }
         }
         return emptyList()
     }
 
-    /** Parses the EPUB3 nav document (an XHTML <nav> with nested <ol>). */
+    /** Reads a zip entry by book-root path, tolerating encoding/case/separator mismatches. */
+    private fun readEntry(path: String): ByteArray? {
+        val actual = resolveEntry(path) ?: return null
+        return SafeZip.readEntry(file, actual)
+    }
+
+    private fun resolveEntry(path: String): String? {
+        if (path in entryNames) return path
+        return entryIndex[normalizeKey(path)]
+    }
+
+    private fun normalizeKey(raw: String): String =
+        runCatching { Uri.decode(raw) }.getOrDefault(raw)
+            .replace('\\', '/')
+            .removePrefix("/")
+            .lowercase()
+
     private fun parseNav(html: String, navRoot: String): List<TocEntry> = runCatching {
         val doc = Jsoup.parse(html)
         val navs = doc.select("nav")

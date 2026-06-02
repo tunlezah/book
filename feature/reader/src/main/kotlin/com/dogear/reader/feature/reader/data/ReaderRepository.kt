@@ -11,9 +11,12 @@ import com.dogear.reader.core.model.ReadingState
 import com.dogear.reader.format.api.FileBackedRef
 import com.dogear.reader.format.api.FormatRegistry
 import com.dogear.reader.format.api.content.BookContent
+import com.dogear.reader.format.api.content.DrmProtectedException
+import com.dogear.reader.format.api.content.PasswordRequiredException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 
 /**
@@ -26,18 +29,36 @@ class ReaderRepository @Inject constructor(
     private val formatRegistry: FormatRegistry,
     @IoDispatcher private val io: CoroutineDispatcher,
 ) {
-    suspend fun open(bookId: Long): OpenedBook? = withContext(io) {
-        val entity = bookDao.getBook(bookId) ?: return@withContext null
-        val fileRow = bookDao.getPrimaryFile(bookId) ?: return@withContext null
+    suspend fun open(bookId: Long): OpenOutcome = withContext(io) {
+        val entity = bookDao.getBook(bookId)
+            ?: return@withContext OpenOutcome.Failure("This book is no longer in your library.")
+        val fileRow = bookDao.getPrimaryFile(bookId)
+            ?: return@withContext OpenOutcome.Failure("This book's file is missing — re-import it to read.")
         val file = File(fileRow.uri)
-        if (!file.exists()) return@withContext null
+        if (!file.exists()) {
+            return@withContext OpenOutcome.Failure("This book's file is missing — re-import it to read.")
+        }
 
         val ref = FileBackedRef(file, fileRow.displayName)
         val handler = formatRegistry.handlerFor(entity.toDomain().format)
             ?: formatRegistry.resolve(ref)?.handler
-            ?: return@withContext null
-        val content = runCatching { handler.openContent(ref) }.getOrNull() ?: return@withContext null
-        OpenedBook(entity.toDomain(), content)
+            ?: return@withContext OpenOutcome.Failure("This file format isn't supported yet.")
+
+        // Classify failures so the reader can show a clear, specific message (never a crash).
+        try {
+            val content = handler.openContent(ref)
+            OpenOutcome.Success(OpenedBook(entity.toDomain(), content))
+        } catch (e: DrmProtectedException) {
+            OpenOutcome.Failure(e.message ?: "This book is DRM-protected.")
+        } catch (e: PasswordRequiredException) {
+            OpenOutcome.Failure(e.message ?: "This file is password-protected.")
+        } catch (e: SecurityException) {
+            OpenOutcome.Failure("This file is password-protected and can't be opened here.")
+        } catch (e: IOException) {
+            OpenOutcome.Failure("This file appears to be corrupt or unreadable.")
+        } catch (t: Throwable) {
+            OpenOutcome.Failure("Couldn't open this book.")
+        }
     }
 
     suspend fun loadProgress(bookId: Long): Locator? = withContext(io) {
@@ -68,6 +89,12 @@ class ReaderRepository @Inject constructor(
 }
 
 data class OpenedBook(val book: Book, val content: BookContent)
+
+/** Outcome of opening a book — a success with content, or a failure with a user-facing message. */
+sealed interface OpenOutcome {
+    data class Success(val opened: OpenedBook) : OpenOutcome
+    data class Failure(val message: String) : OpenOutcome
+}
 
 private fun ReadingProgressEntity.toLocator(): Locator = Locator(
     spineIndex = spineIndex,
